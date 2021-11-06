@@ -1,3 +1,6 @@
+export PATH=$PATH:~/dotfiles/.bin
+
+# sdk
 export PATH=$PATH:~/Library/Android/sdk/platform-tools
 export PATH=$PATH:~/flutter/bin
 export PATH=$PATH:~/flutter/bin/cache/dart-sdk/bin
