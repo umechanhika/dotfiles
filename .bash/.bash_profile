@@ -1,3 +1,4 @@
+# dotfiles
 export PATH=$PATH:~/dotfiles/.bin
 
 # sdk
@@ -9,3 +10,6 @@ export PATH=$PATH:~/flutter/bin/cache/dart-sdk/bin
 source ~/dotfiles/.bash/.git-prompt.sh
 source ~/dotfiles/.bash/.git-completion.bash
 export PS1='\W \[\e[1;32m $(__git_ps1 "(%s)") \[\e[0m\] \$ '
+
+# homebrew
+eval "$(/opt/homebrew/bin/brew shellenv)"
