@@ -1,3 +1,6 @@
+# brew
+brew "openjdk@8"
+
 # tap
 tap "homebrew/bundle"
 tap "homebrew/cask"
