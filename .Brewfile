@@ -8,7 +8,6 @@ tap "homebrew/core"
 
 # cask
 cask "google-chrome"
-cask "inkdrop"
 cask "bettertouchtool"
 cask "iterm2"
 cask "visual-studio-code"
@@ -17,3 +16,5 @@ cask "slack"
 cask "dbeaver-community"
 cask "meetingbar"
 cask "sketch"
+cask "devtoys"
+cask "notion"
