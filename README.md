@@ -1,9 +1,9 @@
 # セットアップ手順
-## gitのセットアップ
-Run `git`
-
 ## zshからbashに変更
 Run `chsh -s /bin/bash`
+
+## gitのセットアップ
+Run `git`
 
 ## ツール類のセットアップ
 1. Clone this repository.
