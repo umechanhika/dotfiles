@@ -15,7 +15,7 @@ Run `git`
 
 ## ツール類のセットアップ
 1. Clone this repository.
-2. run `sh ~/dotfiles/.bin/install.sh`
+2. Run `sh ~/dotfiles/.bin/install.sh`
 
 ### Better Touch Tool
 1. ライセンスファイルのインポート
