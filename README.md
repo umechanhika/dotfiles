@@ -20,3 +20,8 @@ Run `git`
 ### Better Touch Tool
 1. ライセンスファイルのインポート
 2. プリセットのインポート
+
+### iTerm2
+Preferencesを読み込む
+
+https://qiita.com/reoring/items/a0f3d6186efd11c87f1b
