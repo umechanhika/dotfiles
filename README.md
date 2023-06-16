@@ -1,4 +1,10 @@
 # セットアップ手順
+## Macのセットアップ
+1. ダークモードの設定
+2. マウス・トラックパッドの速度設定
+3. ホットコーナーの設定
+4. Dockの整理
+
 ## zshからbashに変更
 Run `chsh -s /bin/bash`
 
@@ -11,8 +17,6 @@ Run `git`
 1. Clone this repository.
 2. run `sh ~/dotfiles/.bin/install.sh`
 
-## Macのセットアップ
-1. ダークモードの設定
-2. マウス・トラックパッドの速度設定
-3. ホットコーナーの設定
-4. Dockの整理
+### Better Touch Tool
+1. ライセンスファイルのインポート
+2. プリセットのインポート
