@@ -2,6 +2,8 @@
 ## zshからbashに変更
 Run `chsh -s /bin/bash`
 
+https://support.apple.com/ja-jp/HT208050
+
 ## gitのセットアップ
 Run `git`
 
