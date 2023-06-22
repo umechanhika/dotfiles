@@ -42,7 +42,7 @@
 
 ### Touch ID
 - 指紋登録
-  - `システム環境設定 > Touch IDとパスコード > Touch IDを使ってMacのロックを解除 > OFF→ON`
+  - `システム環境設定 > Touch IDとパスコード > Touch IDを使ってMacのロックを解除 > OFF→ON > 指紋を追加`
 
 ## ⚙️システムのセットアップ
 ### シェル
