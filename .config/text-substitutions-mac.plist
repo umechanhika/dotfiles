@@ -4,15 +4,21 @@
 <array>
 	<dict>
 		<key>phrase</key>
+		<string>ありがとうございます！</string>
+		<key>shortcut</key>
+		<string>あり</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>ありがとうございました！</string>
 		<key>shortcut</key>
 		<string>あり</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
-		<string>ありがとうございます！</string>
+		<string>妹川</string>
 		<key>shortcut</key>
-		<string>あり</string>
+		<string>いもかわ</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
@@ -22,13 +28,13 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
-		<string>お疲れ様でした！</string>
+		<string>お疲れ様です！</string>
 		<key>shortcut</key>
 		<string>おつ</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
-		<string>お疲れ様です！</string>
+		<string>お疲れ様でした！</string>
 		<key>shortcut</key>
 		<string>おつ</string>
 	</dict>
@@ -46,7 +52,7 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
-		<string>ご確認よろしくお願いします！</string>
+		<string>ご確認ありがとうございます！</string>
 		<key>shortcut</key>
 		<string>ごかくにん</string>
 	</dict>
@@ -58,15 +64,51 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
-		<string>ご確認ありがとうございます！</string>
+		<string>ご確認よろしくお願いします！</string>
 		<key>shortcut</key>
 		<string>ごかくにん</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>▽</string>
+		<key>shortcut</key>
+		<string>さ</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>▼</string>
+		<key>shortcut</key>
+		<string>さ</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>△</string>
+		<key>shortcut</key>
+		<string>さ</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>▲</string>
+		<key>shortcut</key>
+		<string>さ</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
 		<string>匂坂</string>
 		<key>shortcut</key>
 		<string>さぎさか</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>■</string>
+		<key>shortcut</key>
+		<string>し</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>◆</string>
+		<key>shortcut</key>
+		<string>し</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
@@ -85,6 +127,42 @@
 		<string>新澤</string>
 		<key>shortcut</key>
 		<string>にいさわ</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>×</string>
+		<key>shortcut</key>
+		<string>ば</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>犯収法</string>
+		<key>shortcut</key>
+		<string>はんしゅうほう</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>☆</string>
+		<key>shortcut</key>
+		<string>ほ</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>★</string>
+		<key>shortcut</key>
+		<string>ほ</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>◯</string>
+		<key>shortcut</key>
+		<string>ま</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>●</string>
+		<key>shortcut</key>
+		<string>ま</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
