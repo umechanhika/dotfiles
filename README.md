@@ -75,7 +75,11 @@
   - `システム環境設定 > Touch IDとパスコード > Touch IDを使ってMacのロックを解除 > OFF→ON > 指紋を追加`
 
 ## ⚙️システムのセットアップ
-### シェル
+### インストールスクリプトの実行
+- Clone this repository.
+- Run `sh ~/dotfiles/.bin/install.sh`
+
+### シェルスクリプト
 - zshからbashに変更
   - Run `chsh -s /bin/bash`
 
@@ -83,10 +87,7 @@
 - Run `git`
 
 ## 🪛ツール類のセットアップ
-1. Clone this repository.
-2. Run `sh ~/dotfiles/.bin/install.sh`
-
-### Better Touch Tool
+### BetterTouchTool
 1. ライセンスファイルのインポート
 2. プリセットのインポート
 
@@ -94,3 +95,8 @@
 Preferencesを読み込む
 
 https://qiita.com/reoring/items/a0f3d6186efd11c87f1b
+
+### Karabiner-Elements
+設定ファイルのインポート
+
+https://karabiner-elements.pqrs.org/docs/manual/operation/export/
