@@ -75,16 +75,16 @@
   - `システム環境設定 > Touch IDとパスコード > Touch IDを使ってMacのロックを解除 > OFF→ON > 指紋を追加`
 
 ## ⚙️システムのセットアップ
-### インストールスクリプトの実行
-- Clone this repository.
-- Run `sh ~/dotfiles/.bin/install.sh`
-
 ### シェルスクリプト
 - zshからbashに変更
   - Run `chsh -s /bin/bash`
 
 ### git
 - Run `git`
+
+### インストールスクリプトの実行
+- Clone this repository.
+- Run `sh ~/dotfiles/.bin/install.sh`
 
 ## 🪛ツール類のセットアップ
 ### BetterTouchTool
