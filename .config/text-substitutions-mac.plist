@@ -52,6 +52,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>口振</string>
+		<key>shortcut</key>
+		<string>こうふり</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>ご確認ありがとうございます！</string>
 		<key>shortcut</key>
 		<string>ごかくにん</string>
