@@ -76,8 +76,9 @@
 
 ## ⚙️システムのセットアップ
 ### シェルスクリプト
-- zshからbashに変更
-  - Run `chsh -s /bin/bash`
+zshからbashに変更
+
+- Run `chsh -s /bin/bash`
 
 ### git
 - Run `git`
@@ -88,15 +89,13 @@
 
 ## 🪛ツール類のセットアップ
 ### BetterTouchTool
-1. ライセンスファイルのインポート
-2. プリセットのインポート
+- ライセンスファイルのインポート
+- プリセットのインポート
 
 ### iTerm2
-Preferencesを読み込む
-
-https://qiita.com/reoring/items/a0f3d6186efd11c87f1b
+- Preferencesを読み込む:[参考記事](https://qiita.com/reoring/items/a0f3d6186efd11c87f1b)
 
 ### Karabiner-Elements
-設定ファイルのインポート
+USキーでもHHKBライクに`control + space`で入力モードを切り替えられるように`caps lock`を`control`に置き換える。
 
-https://karabiner-elements.pqrs.org/docs/manual/operation/export/
+- 設定ファイルのインポート:[マニュアル](https://karabiner-elements.pqrs.org/docs/manual/operation/export/)
