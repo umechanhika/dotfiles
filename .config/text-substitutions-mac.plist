@@ -124,6 +124,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>相談させてください！</string>
+		<key>shortcut</key>
+		<string>そうだん</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>百成</string>
 		<key>shortcut</key>
 		<string>どうみき</string>
