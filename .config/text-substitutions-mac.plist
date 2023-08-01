@@ -46,6 +46,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>確認します！</string>
+		<key>shortcut</key>
+		<string>かくにん</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>確認させてください！</string>
 		<key>shortcut</key>
 		<string>かくにん</string>
