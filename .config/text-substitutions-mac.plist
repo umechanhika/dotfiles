@@ -46,6 +46,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>(火)</string>
+		<key>shortcut</key>
+		<string>か</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>確認します！</string>
 		<key>shortcut</key>
 		<string>かくにん</string>
@@ -55,6 +61,18 @@
 		<string>確認させてください！</string>
 		<key>shortcut</key>
 		<string>かくにん</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>(金)</string>
+		<key>shortcut</key>
+		<string>き</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>(月)</string>
+		<key>shortcut</key>
+		<string>げ</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
@@ -136,15 +154,33 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>(水)</string>
+		<key>shortcut</key>
+		<string>す</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>相談させてください！</string>
 		<key>shortcut</key>
 		<string>そうだん</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>(土)</string>
+		<key>shortcut</key>
+		<string>ど</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>百成</string>
 		<key>shortcut</key>
 		<string>どうみき</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>(日)</string>
+		<key>shortcut</key>
+		<string>に</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
@@ -193,6 +229,12 @@
 		<string>メリデメ</string>
 		<key>shortcut</key>
 		<string>めりでめ</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>(木)</string>
+		<key>shortcut</key>
+		<string>も</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
