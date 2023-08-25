@@ -22,6 +22,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>↑</string>
+		<key>shortcut</key>
+		<string>う</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>教えてください！</string>
 		<key>shortcut</key>
 		<string>おし</string>
@@ -136,6 +142,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>↓</string>
+		<key>shortcut</key>
+		<string>し</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>■</string>
 		<key>shortcut</key>
 		<string>し</string>
@@ -202,6 +214,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>←</string>
+		<key>shortcut</key>
+		<string>ひ</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>☆</string>
 		<key>shortcut</key>
 		<string>ほ</string>
@@ -223,6 +241,12 @@
 		<string>●</string>
 		<key>shortcut</key>
 		<string>ま</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>→</string>
+		<key>shortcut</key>
+		<string>み</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
