@@ -172,6 +172,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>スプレ</string>
+		<key>shortcut</key>
+		<string>すぷれ</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>相談させてください！</string>
 		<key>shortcut</key>
 		<string>そうだん</string>
