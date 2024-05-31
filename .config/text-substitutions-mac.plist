@@ -4,15 +4,27 @@
 <array>
 	<dict>
 		<key>phrase</key>
+		<string>ありがとうございます。</string>
+		<key>shortcut</key>
+		<string>あり</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>ありがとうございました。</string>
 		<key>shortcut</key>
 		<string>あり</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
-		<string>ありがとうございます。</string>
+		<string>以上、引き続きよろしくお願いいたします。</string>
 		<key>shortcut</key>
-		<string>あり</string>
+		<string>いじょう</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>以上、よろしくお願いいたします。</string>
+		<key>shortcut</key>
+		<string>いじょう</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
@@ -34,9 +46,9 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
-		<string>お疲れ様です。</string>
+		<string>お世話になっております。</string>
 		<key>shortcut</key>
-		<string>おつ</string>
+		<string>おせわ</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
@@ -46,13 +58,19 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
-		<string>お願いします。</string>
+		<string>お疲れ様です。</string>
+		<key>shortcut</key>
+		<string>おつ</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>お願いいたします。</string>
 		<key>shortcut</key>
 		<string>おね</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
-		<string>お待たせしました。</string>
+		<string>お待たせいたしました。</string>
 		<key>shortcut</key>
 		<string>おま</string>
 	</dict>
@@ -64,7 +82,7 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
-		<string>確認します。</string>
+		<string>確認いたします。</string>
 		<key>shortcut</key>
 		<string>かくにん</string>
 	</dict>
@@ -100,7 +118,7 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
-		<string>ご確認ありがとうございます。</string>
+		<string>ご確認よろしくお願いいたします。</string>
 		<key>shortcut</key>
 		<string>ごかくにん</string>
 	</dict>
@@ -112,19 +130,13 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
-		<string>ご確認よろしくお願いします。</string>
+		<string>ご確認ありがとうございます。</string>
 		<key>shortcut</key>
 		<string>ごかくにん</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
-		<string>▲</string>
-		<key>shortcut</key>
-		<string>さ</string>
-	</dict>
-	<dict>
-		<key>phrase</key>
-		<string>△</string>
+		<string>▽</string>
 		<key>shortcut</key>
 		<string>さ</string>
 	</dict>
@@ -136,7 +148,13 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
-		<string>▽</string>
+		<string>△</string>
+		<key>shortcut</key>
+		<string>さ</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>▲</string>
 		<key>shortcut</key>
 		<string>さ</string>
 	</dict>
@@ -148,7 +166,7 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
-		<string>◆</string>
+		<string>↓</string>
 		<key>shortcut</key>
 		<string>し</string>
 	</dict>
@@ -160,7 +178,7 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
-		<string>↓</string>
+		<string>◆</string>
 		<key>shortcut</key>
 		<string>し</string>
 	</dict>
@@ -232,15 +250,9 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
-		<string>氷取沢</string>
+		<string>引き続きよろしくお願いいたします。</string>
 		<key>shortcut</key>
-		<string>ひとりざわ</string>
-	</dict>
-	<dict>
-		<key>phrase</key>
-		<string>★</string>
-		<key>shortcut</key>
-		<string>ほ</string>
+		<string>ひき</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
@@ -250,13 +262,19 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
-		<string>●</string>
+		<string>★</string>
+		<key>shortcut</key>
+		<string>ほ</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>◯</string>
 		<key>shortcut</key>
 		<string>ま</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
-		<string>◯</string>
+		<string>●</string>
 		<key>shortcut</key>
 		<string>ま</string>
 	</dict>
@@ -280,7 +298,7 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
-		<string>よろしくお願いします。</string>
+		<string>よろしくお願いいたします。</string>
 		<key>shortcut</key>
 		<string>よろ</string>
 	</dict>
