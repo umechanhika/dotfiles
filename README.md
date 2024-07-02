@@ -100,4 +100,4 @@ zshからbashに変更
 ### Karabiner-Elements
 USキーでもHHKBライクに`control + space`で入力モードを切り替えられるように`caps lock`を`control`に置き換える。
 
-- 設定ファイルのインポート:[マニュアル](https://karabiner-elements.pqrs.org/docs/manual/operation/export/)
+- `Simple Modifications`で`caps lock`を`left_control`に変更
