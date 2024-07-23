@@ -220,6 +220,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>団信</string>
+		<key>shortcut</key>
+		<string>だんしん</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>(土)</string>
 		<key>shortcut</key>
 		<string>ど</string>
