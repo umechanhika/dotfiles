@@ -322,6 +322,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>ヨセッティ</string>
+		<key>shortcut</key>
+		<string>よせってぃ</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>よろしくお願いいたします。</string>
 		<key>shortcut</key>
 		<string>よろ</string>
