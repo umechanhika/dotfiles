@@ -310,6 +310,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>見留</string>
+		<key>shortcut</key>
+		<string>みとめ</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>メリデメ</string>
 		<key>shortcut</key>
 		<string>めりでめ</string>
