@@ -112,6 +112,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>└</string>
+		<key>shortcut</key>
+		<string>け</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>(月)</string>
 		<key>shortcut</key>
 		<string>げ</string>
