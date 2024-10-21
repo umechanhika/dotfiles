@@ -106,6 +106,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>(仮)</string>
+		<key>shortcut</key>
+		<string>かり</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>(金)</string>
 		<key>shortcut</key>
 		<string>き</string>
