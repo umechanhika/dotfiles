@@ -220,6 +220,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>自分事</string>
+		<key>shortcut</key>
+		<string>じぶんごと</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>承知いたしました。</string>
 		<key>shortcut</key>
 		<string>しょうち</string>
