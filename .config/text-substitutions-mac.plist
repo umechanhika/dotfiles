@@ -82,6 +82,24 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>()</string>
+		<key>shortcut</key>
+		<string>か</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>（）</string>
+		<key>shortcut</key>
+		<string>か</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>【】</string>
+		<key>shortcut</key>
+		<string>か</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>(火)</string>
 		<key>shortcut</key>
 		<string>か</string>
