@@ -184,6 +184,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>ご連絡ありがとうございます。</string>
+		<key>shortcut</key>
+		<string>ごれんらく</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>▽</string>
 		<key>shortcut</key>
 		<string>さ</string>
