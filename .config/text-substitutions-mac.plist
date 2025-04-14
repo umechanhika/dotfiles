@@ -154,6 +154,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>：</string>
+		<key>shortcut</key>
+		<string>こ</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>※</string>
 		<key>shortcut</key>
 		<string>こ</string>
