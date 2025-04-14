@@ -280,6 +280,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>｜</string>
+		<key>shortcut</key>
+		<string>た</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>大変申し訳ございません。</string>
 		<key>shortcut</key>
 		<string>たいへん</string>
