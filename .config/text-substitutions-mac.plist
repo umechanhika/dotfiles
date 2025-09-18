@@ -40,6 +40,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>岡地</string>
+		<key>shortcut</key>
+		<string>おかち</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>教えてください。</string>
 		<key>shortcut</key>
 		<string>おし</string>
@@ -48,7 +54,7 @@
 		<key>phrase</key>
 		<string>お世話になっております。</string>
 		<key>shortcut</key>
-		<string>おせわ</string>
+		<string>おせ</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
@@ -82,6 +88,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>(仮)</string>
+		<key>shortcut</key>
+		<string>か</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>()</string>
 		<key>shortcut</key>
 		<string>か</string>
@@ -108,37 +120,25 @@
 		<key>phrase</key>
 		<string>確認させていただきます。</string>
 		<key>shortcut</key>
-		<string>かくにん</string>
-	</dict>
-	<dict>
-		<key>phrase</key>
-		<string>確認いたします。</string>
-		<key>shortcut</key>
-		<string>かくにん</string>
+		<string>かく</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
 		<string>確認させてください。</string>
 		<key>shortcut</key>
-		<string>かくにん</string>
+		<string>かく</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
-		<string>(仮)</string>
+		<string>確認いたします。</string>
 		<key>shortcut</key>
-		<string>かり</string>
+		<string>かく</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
 		<string>(金)</string>
 		<key>shortcut</key>
 		<string>き</string>
-	</dict>
-	<dict>
-		<key>phrase</key>
-		<string>雲母坂</string>
-		<key>shortcut</key>
-		<string>きららざか</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
@@ -174,31 +174,25 @@
 		<key>phrase</key>
 		<string>ご確認よろしくお願いいたします。</string>
 		<key>shortcut</key>
-		<string>ごかくにん</string>
+		<string>ごか</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
 		<string>ご確認ありがとうございました。</string>
 		<key>shortcut</key>
-		<string>ごかくにん</string>
+		<string>ごか</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
 		<string>ご確認ありがとうございます。</string>
 		<key>shortcut</key>
-		<string>ごかくにん</string>
+		<string>ごか</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
 		<string>ご指摘ください。</string>
 		<key>shortcut</key>
 		<string>ごし</string>
-	</dict>
-	<dict>
-		<key>phrase</key>
-		<string>ご連絡ありがとうございます。</string>
-		<key>shortcut</key>
-		<string>ごれんらく</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
@@ -252,7 +246,7 @@
 		<key>phrase</key>
 		<string>失礼いたしました。</string>
 		<key>shortcut</key>
-		<string>しつれい</string>
+		<string>しつ</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
@@ -282,7 +276,7 @@
 		<key>phrase</key>
 		<string>相談させてください。</string>
 		<key>shortcut</key>
-		<string>そうだん</string>
+		<string>そう</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
@@ -292,15 +286,15 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
-		<string>大変申し訳ございません。</string>
+		<string>大変失礼いたしました。</string>
 		<key>shortcut</key>
-		<string>たいへん</string>
+		<string>たい</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
-		<string>大変失礼いたしました。</string>
+		<string>大変申し訳ございません。</string>
 		<key>shortcut</key>
-		<string>たいへん</string>
+		<string>たい</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
@@ -420,7 +414,7 @@
 		<key>phrase</key>
 		<string>申し訳ございません。</string>
 		<key>shortcut</key>
-		<string>もうしわけ</string>
+		<string>もう</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
@@ -439,6 +433,12 @@
 		<string>よろしくお願いいたします。</string>
 		<key>shortcut</key>
 		<string>よろ</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>ご連絡ありがとうございます。</string>
+		<key>shortcut</key>
+		<string>れん</string>
 	</dict>
 </array>
 </plist>
