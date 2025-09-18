@@ -172,6 +172,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>ご確認いただけますでしょうか？</string>
+		<key>shortcut</key>
+		<string>ごか</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>ご確認よろしくお願いいたします。</string>
 		<key>shortcut</key>
 		<string>ごか</string>
