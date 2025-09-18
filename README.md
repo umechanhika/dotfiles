@@ -79,11 +79,6 @@
   - `システム環境設定 > Touch IDとパスコード > Touch IDを使ってMacのロックを解除 > OFF→ON > 指紋を追加`
 
 ## ⚙️システムのセットアップ
-### シェルスクリプト
-zshからbashに変更
-
-- Run `chsh -s /bin/bash`
-
 ### git
 - Run `git`
 
