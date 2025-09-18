@@ -1,6 +1,6 @@
-# .bash_profile
-ln -s ~/dotfiles/.bash/.bash_profile ~
-source ~/.bash_profile
+# .zshrc
+ln -s ~/dotfiles/.zsh/.zshrc ~
+source ~/.zshrc
 
 # brew
 ln -s ~/dotfiles/.Brewfile ~
