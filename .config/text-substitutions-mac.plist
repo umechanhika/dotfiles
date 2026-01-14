@@ -376,6 +376,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>深来</string>
+		<key>shortcut</key>
+		<string>ふかぎ</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>☆</string>
 		<key>shortcut</key>
 		<string>ほ</string>
