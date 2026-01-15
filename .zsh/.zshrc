@@ -4,6 +4,7 @@ alias gc='git checkout'
 alias gcb='git checkout -b'
 alias gbd='git branch -D'
 alias gbvv='git branch -vv'
+alias gs='git status'
 
 # dotfiles
 export PATH=$PATH:~/dotfiles/.bin
