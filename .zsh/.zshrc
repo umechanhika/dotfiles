@@ -1,3 +1,9 @@
+# alias
+alias gfp='git fetch -p'
+alias gcb='git checkout -b'
+alias gbd='git branch -D'
+alias gbvv='git branch -vv'
+
 # dotfiles
 export PATH=$PATH:~/dotfiles/.bin
 
