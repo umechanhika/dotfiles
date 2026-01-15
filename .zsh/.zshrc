@@ -1,5 +1,6 @@
 # alias
 alias gfp='git fetch -p'
+alias gc='git checkout'
 alias gcb='git checkout -b'
 alias gbd='git branch -D'
 alias gbvv='git branch -vv'
