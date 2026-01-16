@@ -142,6 +142,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>金シ開</string>
+		<key>shortcut</key>
+		<string>きんしか</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>└</string>
 		<key>shortcut</key>
 		<string>け</string>
@@ -247,6 +253,12 @@
 		<string>匂坂</string>
 		<key>shortcut</key>
 		<string>さぎさか</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
+		<string>サビ開</string>
+		<key>shortcut</key>
+		<string>さびかい</string>
 	</dict>
 	<dict>
 		<key>phrase</key>
