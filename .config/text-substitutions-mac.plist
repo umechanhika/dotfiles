@@ -40,6 +40,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>WebView</string>
+		<key>shortcut</key>
+		<string>うぇぶ</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>岡地</string>
 		<key>shortcut</key>
 		<string>おかち</string>
