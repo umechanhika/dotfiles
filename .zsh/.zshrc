@@ -18,6 +18,7 @@ export PATH=$PATH:/Applications/"Android Studio.app"/Contents/MacOS
 export PATH=$PATH:~/Library/Android/sdk/platform-tools
 export PATH=$PATH:~/flutter/bin
 export PATH=$PATH:~/flutter/bin/cache/dart-sdk/bin
+export PATH=$PATH:~/.local/bin
 
 # prompt with git info using zsh built-in vcs_info
 autoload -Uz vcs_info
@@ -31,4 +32,3 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 
 # git completion using zsh built-in
 autoload -Uz compinit && compinit
-export PATH="$HOME/.local/bin:$PATH"
