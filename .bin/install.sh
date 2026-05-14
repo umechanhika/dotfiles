@@ -11,3 +11,6 @@ brew bundle --global
 # vim
 ln -s ~/dotfiles/.vim ~
 ln -s ~/dotfiles/.vim/.vimrc ~
+
+# Claude Code global skills
+ln -sf ~/dotfiles/.config/.claude/skills ~/.claude/skills
