@@ -226,6 +226,12 @@
 	</dict>
 	<dict>
 		<key>phrase</key>
+		<string>コメントしました。</string>
+		<key>shortcut</key>
+		<string>こめ</string>
+	</dict>
+	<dict>
+		<key>phrase</key>
 		<string>ご連絡ありがとうございます。</string>
 		<key>shortcut</key>
 		<string>ごれ</string>
