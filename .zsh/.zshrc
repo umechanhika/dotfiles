@@ -32,3 +32,5 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 
 # git completion using zsh built-in
 autoload -Uz compinit && compinit
+
+alias gwc='. ~/dotfiles/.bin/gwc.sh'

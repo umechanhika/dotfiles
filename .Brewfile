@@ -1,5 +1,6 @@
 # brew
 brew "openjdk@8"
+brew "fzf"
 
 # tap
 tap "homebrew/bundle"
