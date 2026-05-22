@@ -43,6 +43,29 @@ gh pr diff {pr_number}
 git diff origin/main...HEAD
 ```
 
+### STEP 3.5: パターン検索（構文で識別できる観点の事前確認）
+
+差分に含まれる Kotlin ファイルを対象に、LLM の注意が分散しやすいパターンを grep で機械的に抽出する。
+STEP 5b の新規指摘生成時に、この検索結果を必ずインプットとして参照すること。
+
+```bash
+# 差分に含まれる Kotlin ファイルを取得
+gh pr diff {pr_number} --name-only | grep "\.kt$"
+
+# 各ファイルに対して以下を実行
+grep -n "@SuppressLint\|@Suppress(" {file}
+grep -n "remember {" {file}
+grep -n "DialogProperties" {file}
+```
+
+各ヒットに対する判断基準:
+
+| パターン | 確認内容 | 指摘候補になる条件 |
+|---------|---------|-----------------|
+| `@SuppressLint` / `@Suppress(` | 直前行に `//` コメントがあるか | コメントがない場合 → コードの品質「アノテーションのコメント」として指摘 |
+| `remember {` | キーなしで外部の引数（ViewModel・コールバック等）を内部に保持しているか | 保持している場合 → Jetpack Compose「rememberキー指定」として指摘 |
+| `DialogProperties` | `dismissOnBackPress` / `dismissOnClickOutside` が明示されているか | 明示なし（デフォルト）かつ旧実装（`isCancelable`）から動作が変わる場合 → 確認事項として指摘 |
+
 ### STEP 4: 未解決コメントの取得（自分が作成したPRの場合のみ）
 
 GitHub GraphQL API で未解決のレビュースレッドを取得する：
@@ -307,15 +330,21 @@ mkdir -p {カレントディレクトリ}/tmp/review
 #### LaunchedEffect / UiEvent
 - `screenState` の中にある値を `LaunchedEffect` で処理している場合、`Composable` 関数で処理すべきでないか確認する
 - `LaunchedEffect` のキーは適切か確認する（`Unit` にして良いケース vs 可変値が必要なケース）
+- Composable 本体（コンポーズフェーズ）で `uiEvents.forEach { ... }` のように副作用を直接実行していないか確認する。副作用は `LaunchedEffect` 等の Effect API で実行する
+- `forEach` ブロック内で `return` を使うと非ローカルリターン（関数全体の終了）になり、後続のイベント処理がスキップされる。`return@forEach` を使うべきケースになっていないか確認する
 
 #### ViewModel / UseCase
 - 画面ログ（Screen Log）は ViewModel の `init` で送信する設計方針に準拠しているか
 - `UseCase` 命名に HTTP メソッド名（`Get`, `Post`）が含まれていないか（ドメイン観点の命名が適切）
 - バリデーション結果（Valid/Invalid）は ViewModel または UseCase 側に持たせ、画面側に持たせない
+- ViewModel のプロパティ（Logger 等）が `private` でなく外部から直接参照できる状態になっていないか確認する。内部実装は外部に漏らさない
+- 画面ログ・分析ログ（`screenEvent` / `tapEvent` 等）の削除・変更が含まれている場合、意図的かどうかを確認する
 
 #### StateFlow / Flow
 - `StateFlow` の初期値は適切か（`null` が不要な場合は `Unit` や適切なデフォルト値にする）
 - イベント消費（consume）の順序：処理を実行してから消費する
+- 同一 UiEvent の複数箇所で消費タイミングが異なる場合（表示前に consume するケースと表示後のコールバック内で consume するケースが混在）は統一を促す
+- `combine` / `flatMapLatest` ブロック内でのエラーハンドリングが漏れていないか確認する（例：一方の Flow が常に Success を返す場合、エラーが伝播しないリスク）
 
 #### Jetpack Compose
 - Preview は適切なコンテンツが揃っているか（他と一貫しているか）
@@ -323,6 +352,9 @@ mkdir -p {カレントディレクトリ}/tmp/review
 - Fake 実装クラスは Preview メソッド内に定義する方がわかりやすい
 - `Modifier.fillMaxWidth()` でタップ領域を画面端まで広げる（テキストリンク等）
 - `Visibility.invisible` の代わりに `alpha = 0f` を使う
+- `remember { ... }` にキーが指定されていない場合、引数が変わっても再生成されない。`remember(key) { ... }` が必要かどうかを確認する
+- `LocalContext.current` を `remember` キーなしの安定クラス内で保持している場合、Activity 再生成後に古い Context を参照するリスクがある
+- `DialogProperties` で `dismissOnBackPress` / `dismissOnClickOutside` をデフォルトのまま使っている場合、旧実装からの動作変更が意図的かどうかを確認する
 
 #### Fragment / Activity
 - `Intent` の `addFlags` など意図的な設定が消されないよう、コメントを残す
@@ -345,6 +377,9 @@ mkdir -p {カレントディレクトリ}/tmp/review
 
 - **文字列リソースの扱い**
   - 既存の文字列定義（`strings.xml`）と同じ文言を直書きしている場合は既存定義の使用を促す
+
+- **アノテーションのコメント**
+  - `@SuppressLint` / `@Suppress` でワーニングを抑制している場合、なぜ抑制しているかのコメントが書かれているか確認する
 
 - **バリデーション**
   - 条件の `<` と `<=` の正確性を確認する
