@@ -14,4 +14,4 @@ ln -s ~/dotfiles/.vim/.vimrc ~
 
 # Claude Code global skills
 ln -sf ~/dotfiles/.config/.claude/skills ~/.claude/skills
-ln -sf ~/dotfiles/.claude/settings.json ~/.claude/settings.json
+ln -sf ~/dotfiles/.config/.claude/settings.json ~/.claude/settings.json
