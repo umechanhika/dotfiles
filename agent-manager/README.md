@@ -21,7 +21,7 @@ hooks/agent-manager-hook.sh ──▶ ~/.claude/agent-manager/sessions/<session_
 ```
 
 - hook と Swift アプリはファイル経由でのみ連携する疎結合構成。状態ファイル（`~/.claude/agent-manager/sessions/`）はマシンローカルで dotfiles には含めない。
-- 各セッションのホストアプリは hook が `__CFBundleIdentifier` で判定（iTerm2 / Android Studio 等）。`iterm_session_id` は iTerm2 のときだけ記録（Android Studio が iTerm2 から起動され `ITERM_SESSION_ID` を継承していても誤って記録しない）。
+- 各セッションのホストアプリは hook が**プロセスツリーを遡って、ターミナルを内包する最も近い `.app` の bundle id**を解決して判定（iTerm2 / Android Studio 等）。`__CFBundleIdentifier` / `ITERM_SESSION_ID` は当てにしない（Android Studio を iTerm2 から `studio .` で起動すると、AS の統合ターミナル子プロセスがこれらに iTerm2 の値を継承してしまい誤判定するため）。`iterm_session_id` は host が iTerm2 と確定したときだけ記録する。
 - 状態検知は Claude Code の hooks。マッピングは `hooks/agent-manager-hook.sh` の `STATE_BY_EVENT` で調整可能（例: `Stop` を `waiting` にすると応答完了を「確認待ち」扱いにできる）。
 - アプリの起動は `SessionStart` フックの `agent-manager-launch.sh` が担う。未起動なら（必要に応じて release ビルドして）起動し、起動済みなら何もしない。セッション開始を遅延させないよう重い処理はバックグラウンドに逃がす。
 
@@ -77,7 +77,21 @@ Dock には出ず（`.accessory`）、画面右上に小窓が常駐する。ウ
 | ホスト | 挙動 | 必要な権限 |
 |--------|------|-----------|
 | iTerm2 (`com.googlecode.iterm2`) | `ITERM_SESSION_ID` の GUID で該当ペインを AppleScript 選択＋前面化 | Automation（iTerm2 制御） |
-| その他 (Android Studio `com.google.android.studio` 等) | `open -b` でアプリ前面化＋ System Events でタイトルにプロジェクト名を含むウィンドウを AXRaise | Automation（System Events）＋ アクセシビリティ |
+| その他 (Android Studio `com.google.android.studio` 等) | System Events で全ウィンドウタイトルを列挙し、**該当プロジェクトのウィンドウを一意に特定できたときだけ** AXRaise（特定不能なら誤前面化しない） | Automation（System Events）＋ アクセシビリティ |
+
+#### ウィンドウ特定ロジック（同一チケットの別ブランチ対策）
+
+ワークツリーは同一チケットの別ブランチでプロジェクト名が前方一致しやすく、単純な部分一致
+（title contains）だと別ウィンドウへ誤って飛ぶ。これを避けるため `ITermFocus.swift` は次の順で
+**厳密に1件だけ**特定する（一意に決まらなければ前面化を見送る）:
+
+1. **フルパス優先**: タイトルに `cwd`（一意なワークツリー絶対パス）を含むウィンドウが1件あれば採用。
+   Android Studio の `Settings > Appearance & Behavior > Appearance > Show full path in window header`
+   を ON にすると、この最も確実な方法でマッチする（推奨）。
+2. **境界考慮のプロジェクト名一致**: フルパスで決まらなければ、タイトルが `label`（ワークツリー名）で
+   始まり、直後が境界文字（空白・en-dash `–` 等。ASCII ハイフン `-` は branch 名の一部なので**境界に含めない**）の
+   ウィンドウだけを候補にする。これで `feature-MBDEV-82` が `feature-MBDEV-82-...` に誤マッチしない。
+3. 上記で候補が 0 件 / 複数のときは AXRaise せず、`focus.log` に理由を残す（勝手に新規プロジェクトを開かない）。
 
 ### 権限（重要）
 
@@ -86,10 +100,11 @@ iTerm2 や System Events を制御するには macOS の権限が必要。この
 安定したバンドルID＋ad-hoc署名）として `open` 起動する（TCC が許可を安定記憶できるように）。
 
 - **iTerm2 セッション**: 初回クリックで「"AgentManager" が "iTerm2" を制御…」を **許可**。
-- **Android Studio 等**: ウィンドウ選択に **アクセシビリティ権限** が必要。
+- **Android Studio 等**: ウィンドウの列挙・選択に **アクセシビリティ権限** が必要。
   `システム設定 > プライバシーとセキュリティ > アクセシビリティ` で **AgentManager を ON**。
-  未許可でも `open -b` によるアプリ前面化までは効く（ウィンドウ選択のみ無効）。
-- フォーカスの成否は `~/.claude/agent-manager/focus.log` に記録（`raised` / `no-window-match` / `status`/`err`）。
+  未許可だとウィンドウを列挙できないため前面化は行われず、`focus.log` に権限付与を促すメッセージを残す。
+- フォーカスの成否は `~/.claude/agent-manager/focus.log` に記録
+  （マッチ方式 `via=fullpath`/`via=label`・採用 `title`・`raised` / `no unique window match` / `status`/`err`）。
 
 ## ファイル構成
 
