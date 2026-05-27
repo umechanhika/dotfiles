@@ -131,5 +131,6 @@
     "frontend-design@claude-plugins-official": true
   },
   "effortLevel": "high",
-  "theme": "dark"
+  "theme": "dark",
+  "model": "opus[1m]"
 }
