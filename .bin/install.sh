@@ -15,6 +15,7 @@ ln -s ~/dotfiles/.vim/.vimrc ~
 # Claude Code global skills
 ln -sf ~/dotfiles/.config/.claude/skills ~/.claude/skills
 ln -sf ~/dotfiles/.config/.claude/settings.json ~/.claude/settings.json
+ln -sf ~/dotfiles/.config/.claude/statusline-command.sh ~/.claude/statusline-command.sh
 
 # agent-manager (iTerm2上のClaude Codeセッション状態モニタ)
 # hookはsettings.jsonに登録済み。署名証明書を作成し、署名済み .app をビルドしておく
