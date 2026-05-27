@@ -27,7 +27,27 @@ hooks/agent-manager-hook.sh ──▶ ~/.claude/agent-manager/sessions/<session_
 
 ## セットアップ
 
-`~/dotfiles/.bin/install.sh` が以下をまとめて行う（hooks は `.config/.claude/settings.json` に登録済み、初回 release ビルドも実行）。手動でやる場合は次の通り。
+### 新規クローン時の流れ（推奨）
+
+```
+1. git clone <dotfiles> ~/dotfiles
+2. sh ~/dotfiles/.bin/install.sh
+     - settings.json / skills をシンボリックリンク（→ フック有効化）
+     - scripts/create-signing-cert.sh で署名証明書を作成して信頼設定
+       （信頼設定の認証ダイアログ＋キーチェーンPW入力あり。通常ターミナルで実行）
+     - scripts/build-app.sh で署名済み .app をビルド
+3. 新規 Claude Code セッションを開始
+     - SessionStart フックで launch.sh が署名済み .app を起動
+4. 初回フォーカス時のみ権限付与（下記「権限」を参照）
+     - iTerm2: 許可ダイアログで「許可」
+     - Android Studio: システム設定 > アクセシビリティ で AgentManager を手動ON
+```
+
+`install.sh` が上記 2 を全部やる。証明書作成（手順 2 の対話）以外は手動操作不要。
+**証明書を作らずに `.app` をビルドしようとすると署名IDが無く失敗する**ので、
+クローン時は必ず `install.sh`（または `create-signing-cert.sh`）を先に通すこと。
+
+以降の各手順を手動でやる場合は次の通り。
 
 ### 1. hooks（dotfiles 管理済み）
 
@@ -38,11 +58,16 @@ hooks は `~/dotfiles/.config/.claude/settings.json`（`~/.claude/settings.json`
 
 依存: `python3`（macOS 標準の `/usr/bin/python3` でOK）。`jq` は不要。
 
-### 2. ビルド（初回のみ。以降は launcher が必要時に自動ビルド）
+### 2. 署名証明書の作成 → ビルド（初回のみ。以降は launcher が必要時に自動ビルド）
 
 ```sh
-swift build --package-path ~/dotfiles/agent-manager -c release
+bash ~/dotfiles/agent-manager/scripts/create-signing-cert.sh   # 署名IDを作成（初回のみ・冪等）
+bash ~/dotfiles/agent-manager/scripts/build-app.sh             # 署名済み .app を生成
 ```
+
+`build-app.sh` は安定した名前付き ID（`AgentManager Code Signing`）で署名する。
+署名IDが無いとビルドは失敗し `~/.claude/agent-manager/build.log` にエラーを残す
+（詳細は下記「権限 > コード署名証明書の作成」）。
 
 ### 3. 起動
 
@@ -51,8 +76,8 @@ swift build --package-path ~/dotfiles/agent-manager -c release
 
 ```sh
 ~/dotfiles/agent-manager/hooks/agent-manager-launch.sh      # 未起動なら起動（冪等）
-# または直接:
-~/dotfiles/agent-manager/.build/release/AgentManager &
+# または直接 .app を:
+/usr/bin/open ~/dotfiles/agent-manager/.build/AgentManager.app
 ```
 
 Dock には出ず（`.accessory`）、画面右上に小窓が常駐する。ウィンドウは背景ドラッグで移動可能。
@@ -99,12 +124,46 @@ Dock には出ず（`.accessory`）、画面右上に小窓が常駐する。ウ
 
 iTerm2 や System Events を制御するには macOS の権限が必要。このため本アプリは
 **`.app` バンドル**（`scripts/build-app.sh` が `.build/AgentManager.app` を生成、
-安定したバンドルID＋ad-hoc署名）として `open` 起動する（TCC が許可を安定記憶できるように）。
+安定したバンドルID＋名前付きコード署名）として `open` 起動する（TCC が許可を安定記憶できるように）。
 
 - **iTerm2 セッション**: 初回クリックで「"AgentManager" が "iTerm2" を制御…」を **許可**。
 - **Android Studio 等**: ウィンドウの列挙・選択に **アクセシビリティ権限** が必要。
   `システム設定 > プライバシーとセキュリティ > アクセシビリティ` で **AgentManager を ON**。
   未許可だとウィンドウを列挙できないため前面化は行われず、`focus.log` に権限付与を促すメッセージを残す。
+
+#### コード署名証明書の作成（初回のみ・推奨）
+
+ad-hoc 署名（`codesign --sign -`）は cdhash ベースの署名要件になるため、`.app` を
+リビルドするたびに macOS が「別アプリ」とみなし、付与済みのアクセシビリティ／
+Automation 権限が無効化される。これを防ぐため、安定した自己署名のコード署名証明書を
+1 つ作っておく（`build-app.sh` が `AgentManager Code Signing` という名前の ID で署名する）。
+
+```sh
+bash scripts/create-signing-cert.sh
+```
+
+**通常のターミナル（Terminal.app / iTerm2）で実行すること**（Claude セッションの `!`
+実行は対話入力ができないため不可）。このスクリプトは openssl で自己署名のコード署名
+証明書を生成して login キーチェーンへ取り込み、コード署名用に信頼設定する
+（冪等：既に有効な ID があれば何もしない。過去の失敗で残った重複証明書も掃除する）。
+途中で次の認証が出る:
+
+- **信頼設定の追加**: macOS の認証ダイアログ（Touch ID / ログインパスワード）。
+- **鍵アクセス許可**: login キーチェーンのパスワードを尋ねる。空 Enter でスキップ可
+  （その場合は初回 `codesign` 時に GUI で「常に許可」を押す）。`KEYCHAIN_PASSWORD=xxx`
+  を付けて実行すれば対話入力なしで設定できる。
+
+- 作成後 `bash scripts/build-app.sh` がこの ID で署名する。
+- 署名 ID を切り替えた直後は一度だけアクセシビリティ権限の再付与が必要
+  （`システム設定 > アクセシビリティ` で AgentManager を一旦削除して再追加）。
+- GUI で作りたい場合は キーチェーンアクセス >
+  `証明書アシスタント > 証明書を作成…` で 名前=`AgentManager Code Signing`・
+  証明書のタイプ=`コード署名` を選んでも同じ。
+
+> **ad-hoc 署名へのフォールバックはしない。** 黙って ad-hoc に落ちると「リビルドで
+> 権限が消える」問題に気付けないため、署名IDが無ければビルドは**失敗**し、
+> `~/.claude/agent-manager/build.log` にエラーを残す。ランチャー経由（`launch.sh`）の
+> 自動ビルドで失敗したときは、この `build.log` を見れば原因が分かる。
 - フォーカスの成否は `~/.claude/agent-manager/focus.log` に記録
   （マッチ方式 `via=fullpath`/`via=label`・採用 `title`・`raised` / `no unique window match` / `status`/`err`）。
 
@@ -113,7 +172,8 @@ iTerm2 や System Events を制御するには macOS の権限が必要。この
 ```
 hooks/agent-manager-hook.sh     状態ファイルの upsert（python3 利用、全hookから呼ばれる）
 hooks/agent-manager-launch.sh   SessionStart用: 未起動なら .app をbuild & open起動（冪等）
-scripts/build-app.sh            release build → 最小 .app バンドル生成（Info.plist+ad-hoc署名）
+scripts/build-app.sh            release build → 最小 .app バンドル生成（Info.plist+名前付き署名。IDが無ければ失敗）
+scripts/create-signing-cert.sh  署名用の自己署名コード署名証明書を作成（初回のみ・冪等）
 Package.swift
 Sources/AgentManager/
   main.swift                    NSApplication / フローティング NSPanel

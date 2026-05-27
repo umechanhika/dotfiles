@@ -38,6 +38,25 @@ resolve_host_bundle() {
 
 # セッションを内包する GUIアプリの bundle id。
 HOST_BUNDLE="$(resolve_host_bundle "$$" || true)"
+
+# このセッションを所有する claude 本体プロセスの PID を解決する。
+# フック自身($$)は短命なので、$PPID から親を遡り comm が claude らしい最も
+# 近い祖先を採用する。見つからなければ $PPID にフォールバックする。
+# SessionStore 側はこの PID の生存で「孤児セッション」を掃除する。
+resolve_owner_pid() {
+  local pid="$1" cmd
+  while [ -n "$pid" ] && [ "$pid" -gt 1 ]; do
+    cmd="$(ps -o comm= -p "$pid" 2>/dev/null || true)"
+    case "$cmd" in
+      *claude*) echo "$pid"; return ;;
+    esac
+    pid="$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ' || true)"
+  done
+}
+OWNER_PID="$(resolve_owner_pid "$PPID" || true)"
+if [ -z "$OWNER_PID" ]; then OWNER_PID="$PPID"; fi
+# PID 再利用での誤判定を防ぐため起動時刻も記録（ps の lstart）。
+OWNER_STARTED_AT="$(ps -o lstart= -p "$OWNER_PID" 2>/dev/null | sed 's/^ *//;s/ *$//' || true)"
 # フォールバック1: 環境変数（プロセスツリー解決に失敗した場合のみ）。
 if [ -z "$HOST_BUNDLE" ]; then HOST_BUNDLE="${__CFBundleIdentifier:-}"; fi
 # フォールバック2: TERM_PROGRAM。
@@ -55,12 +74,19 @@ ITERM_GUID="${ITERM_SESSION_ID##*:}"
 #   なり hook の JSON を読めないため、env 経由で渡す。
 HOOK_INPUT="$(cat)"
 
-STORE_DIR="$STORE_DIR" ITERM_GUID="$ITERM_GUID" HOST_BUNDLE="$HOST_BUNDLE" HOOK_INPUT="$HOOK_INPUT" /usr/bin/python3 - <<'PY'
+STORE_DIR="$STORE_DIR" ITERM_GUID="$ITERM_GUID" HOST_BUNDLE="$HOST_BUNDLE" \
+OWNER_PID="$OWNER_PID" OWNER_STARTED_AT="$OWNER_STARTED_AT" \
+HOOK_INPUT="$HOOK_INPUT" /usr/bin/python3 - <<'PY'
 import os, sys, json, datetime
 
 store_dir = os.environ["STORE_DIR"]
 iterm_guid = os.environ.get("ITERM_GUID", "")
 host_bundle = os.environ.get("HOST_BUNDLE", "")
+try:
+    owner_pid = int(os.environ.get("OWNER_PID", "") or 0) or None
+except ValueError:
+    owner_pid = None
+owner_started_at = os.environ.get("OWNER_STARTED_AT", "")
 
 try:
     payload = json.loads(os.environ.get("HOOK_INPUT") or "{}")
@@ -136,6 +162,10 @@ iterm_id = (iterm_guid or existing.get("iterm_session_id", "")) if is_iterm else
 # created_at は初回作成時刻を保持（表示順を起動順で固定するため）。
 created = existing.get("created_at") or now
 
+# 所有 PID / 起動時刻も初回値を保持（後続フックで env が空でも維持）。
+owner_pid = owner_pid or existing.get("owner_pid")
+owner_started_at = owner_started_at or existing.get("owner_started_at", "")
+
 record = {
     "session_id": session_id,
     "cwd": cwd,
@@ -143,6 +173,8 @@ record = {
     "state": state,
     "host_bundle_id": host,
     "iterm_session_id": iterm_id,
+    "owner_pid": owner_pid,
+    "owner_started_at": owner_started_at,
     "created_at": created,
     "updated_at": now,
 }

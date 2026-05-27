@@ -11,6 +11,8 @@ struct Session: Identifiable, Decodable {
     let updated_at: String
     let host_bundle_id: String?  // セッションを起動したアプリ（旧ファイル互換のため optional）
     let created_at: String?      // 初回作成時刻（表示順の固定に使用。旧ファイル互換で optional）
+    let owner_pid: Int?          // セッションを所有する claude プロセスの PID（孤児掃除に使用。旧ファイル互換で optional）
+    let owner_started_at: String? // 所有プロセスの起動時刻（PID 再利用の誤判定回避用）
 
     var id: String { session_id }
 
@@ -89,6 +91,12 @@ final class SessionStore: ObservableObject {
         for url in files {
             guard let data = try? Data(contentsOf: url),
                   let s = try? decoder.decode(Session.self, from: data) else { continue }
+            // 所有プロセスが消えた孤児セッションは掃除する。
+            // owner_pid を持たない旧ファイルは判定材料がないため従来どおり保持する。
+            if let pid = s.owner_pid, !Self.isOwnerAlive(pid: pid, startedAt: s.owner_started_at) {
+                try? fm.removeItem(at: url)
+                continue
+            }
             loaded.append(s)
         }
         // 起動順で固定（ステータス変化で並びが動かないように）。同時刻は session_id で安定化。
@@ -97,5 +105,32 @@ final class SessionStore: ObservableObject {
                                      : $0.session_id < $1.session_id
         }
         sessions = loaded
+    }
+
+    /// 所有プロセスが生きているか。死んでいれば false（＝孤児として掃除対象）。
+    /// PID 再利用で別プロセスに化けるのを避けるため、起動時刻が記録されていれば
+    /// 現在の同 PID の起動時刻と一致することも要求する。
+    private static func isOwnerAlive(pid: Int, startedAt: String?) -> Bool {
+        // kill(pid, 0): 生存なら 0、いなければ -1 で errno==ESRCH。
+        // EPERM（存在するが権限なし）は同一ユーザー運用では基本起きないが、
+        // 生存扱いにして誤掃除を避ける。
+        if kill(pid_t(pid), 0) != 0 && errno == ESRCH { return false }
+
+        guard let startedAt = startedAt, !startedAt.isEmpty else { return true }
+        return currentStartTime(pid: pid) == startedAt
+    }
+
+    /// `ps -o lstart=` で指定 PID の起動時刻文字列を取得（前後空白は除去）。
+    private static func currentStartTime(pid: Int) -> String {
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/bin/ps")
+        proc.arguments = ["-o", "lstart=", "-p", String(pid)]
+        let pipe = Pipe()
+        proc.standardOutput = pipe
+        proc.standardError = Pipe()
+        guard (try? proc.run()) != nil else { return "" }
+        proc.waitUntilExit()
+        let out = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        return out.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
