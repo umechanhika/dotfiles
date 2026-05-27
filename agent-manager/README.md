@@ -1,6 +1,6 @@
 # Agent Manager
 
-複数の Claude Code セッションの状態（🟡要対応 / 🟢応答完了 / 🔵処理中 / ⚪待機）を、**常時最前面・全 Space 表示の小さなフローティングウィンドウ**で一覧するツール。行をクリックすると該当セッションのターミナル（iTerm2 / Android Studio 等）へジャンプする。
+複数の Claude Code セッションの状態（🟡確認待ち / 🟢応答完了 / 🔵処理中 / ⚪待機）を、**常時最前面・全 Space 表示の小さなフローティングウィンドウ**で一覧するツール。行をクリックすると該当セッションのターミナル（iTerm2 / Android Studio 等）へジャンプする。
 
 dotfiles の一部として `~/dotfiles/agent-manager/` で管理する（ビルド成果物 `.build/` は gitignore）。
 
@@ -61,12 +61,14 @@ Dock には出ず（`.accessory`）、画面右上に小窓が常駐する。ウ
 
 | 表示 | 色 | state | 発火 hook | 意味 |
 |------|----|-------|-----------|------|
-| 要対応 | 🟡 黄 | `waiting` | `Notification` | 権限プロンプト等、**明確なユーザーアクション待ち** |
-| 応答完了 | 🟢 緑 | `done` | `Stop` | Claudeのターンが終わり、**次の指示待ち** |
+| 確認待ち | 🟡 黄 | `waiting` | `Notification`（`permission_prompt`） | ツール許可 / プラン承認 / 選択肢回答など、**ユーザーの確認・操作が必要でブロック中** |
+| 応答完了 | 🟢 緑 | `done` | `Stop` / `Notification`（`idle_prompt`） | Claudeのターンが終わり、**次の指示待ち**（完了後に放置されても緑のまま） |
 | 処理中 | 🔵 青 | `processing` | `UserPromptSubmit` / `PreToolUse` / `PostToolUse` | 稼働中 |
 | 待機 | ⚪ 灰 | `idle` | `SessionStart` | 開始直後でまだ何もしていない |
 
-- 並び順は 要対応 → 応答完了 → 処理中 → 待機（対応が必要なものが上）。
+`Notification` は `notification_type` で扱いを分ける。`permission_prompt`（許可・プラン承認・選択肢回答の待ち）は確認待ち、`idle_prompt`（完了後の放置によるアイドル）は応答完了を維持する。`ExitPlanMode` / `AskUserQuestion` は `PreToolUse`（処理中）の後に `permission_prompt` が来るため、自然に確認待ちへ遷移する。
+
+- 並び順は 確認待ち → 応答完了 → 処理中 → 待機（対応が必要なものが上）。
 - セッション終了（`SessionEnd`）で一覧から消える。
 - 30 分以上更新の無いエントリは薄く表示（hook 取りこぼし時の名残対策）。
 

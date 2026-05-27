@@ -19,7 +19,7 @@ struct Session: Identifiable, Decodable {
 
     var color: Color {
         switch state {
-        case "waiting":    return .yellow    // 明確なアクション待ち
+        case "waiting":    return .yellow    // 確認待ち（許可/プラン承認/選択肢回答）
         case "done":       return .green     // 応答完了
         case "processing": return .blue      // 処理中
         default:           return .secondary // 待機
@@ -28,7 +28,7 @@ struct Session: Identifiable, Decodable {
 
     var stateLabel: String {
         switch state {
-        case "waiting":    return "要対応"
+        case "waiting":    return "確認待ち"
         case "done":       return "応答完了"
         case "processing": return "処理中"
         default:           return "待機"

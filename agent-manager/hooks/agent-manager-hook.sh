@@ -72,16 +72,22 @@ cwd = payload.get("cwd") or os.getcwd()
 event = payload.get("hook_event_name") or ""
 
 # hook イベント → state マッピング（唯一の調整ポイント）
-#   waiting    = 明確なユーザーアクション待ち（権限プロンプト等、Claudeがブロックされている）
+#   waiting    = 確認待ち。ユーザーの確認・操作が必要でClaudeがブロックされている
+#                （ツール許可待ち / プラン承認待ち / 選択肢回答待ち 等を包括）
 #   done       = 応答完了（Claudeのターンが終わり、次の指示待ち）
 #   processing = 処理中
 #   idle       = 開始直後でまだ何もしていない
+#
+# 注意: Notification はここに含めない。notification_type で
+#   permission_prompt(=確認待ち) と idle_prompt(=完了後の放置) を区別し、
+#   後段で個別に state を決める（idle_prompt を waiting に化けさせないため）。
+#   ExitPlanMode / AskUserQuestion は PreToolUse(processing) 後に
+#   permission_prompt の Notification が来るため、自然に waiting へ遷移する。
 STATE_BY_EVENT = {
     "SessionStart":     "idle",
     "UserPromptSubmit": "processing",
     "PreToolUse":       "processing",
     "PostToolUse":      "processing",
-    "Notification":     "waiting",
     "Stop":             "done",
 }
 
@@ -95,10 +101,8 @@ if event == "SessionEnd":
         pass
     sys.exit(0)
 
-state = STATE_BY_EVENT.get(event, "processing")
-now = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
-
-# 既存ファイルがあれば値を引き継ぐ（後続 hook で env が空でも保持）
+# 既存ファイルがあれば値を引き継ぐ（後続 hook で env が空でも保持）。
+# Notification の種別不明時のフォールバック判定にも使うため先に読む。
 existing = {}
 if os.path.exists(path):
     try:
@@ -106,6 +110,23 @@ if os.path.exists(path):
             existing = json.load(f)
     except Exception:
         existing = {}
+
+# state を決定する。Notification だけは notification_type で分岐する。
+if event == "Notification":
+    notification_type = payload.get("notification_type") or ""
+    if notification_type == "idle_prompt":
+        # 完了後に放置されているだけ。応答完了(緑)を維持し確認待ちにしない。
+        state = "done"
+    elif notification_type in ("permission_prompt", "elicitation_dialog"):
+        # 許可待ち / プラン承認待ち / 選択肢回答待ち / MCP入力待ち = 確認待ち。
+        state = "waiting"
+    else:
+        # auth_success 等の情報通知や種別不明: 現在の状態をそのまま維持。
+        state = existing.get("state") or "processing"
+else:
+    state = STATE_BY_EVENT.get(event, "processing")
+
+now = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
 
 host = host_bundle or existing.get("host_bundle_id", "")
 is_iterm = host == "com.googlecode.iterm2"
