@@ -6,33 +6,21 @@ struct ContentView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text("Claude Sessions")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-
-            Divider().opacity(0.3)
-
             if store.sessions.isEmpty {
                 Text("セッションなし")
                     .font(.system(size: 11))
                     .foregroundStyle(.tertiary)
                     .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 14)
+                    .padding(.vertical, 8)
             } else {
                 ForEach(store.sessions) { session in
                     SessionRow(session: session)
                 }
-                .padding(.vertical, 2)
             }
         }
-        .frame(width: 230)
+        .frame(width: 220)
+        .padding(.vertical, 4)
         .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
 
@@ -56,12 +44,11 @@ private struct SessionRow: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .opacity(session.isStale ? 0.45 : 1)
+        .padding(.vertical, 3)
         .background(hovering ? Color.primary.opacity(0.08) : Color.clear)
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
-        .onTapGesture { ITermFocus.focus(guid: session.iterm_session_id) }
+        .onTapGesture { ITermFocus.focus(session: session) }
         .help(session.cwd)
     }
 }

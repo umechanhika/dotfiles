@@ -6,41 +6,33 @@ struct Session: Identifiable, Decodable {
     let session_id: String
     let cwd: String
     let label: String
-    let state: String          // "waiting" | "processing" | "idle"
+    let state: String          // "waiting" | "done" | "processing" | "idle"
     let iterm_session_id: String
     let updated_at: String
+    let host_bundle_id: String?  // セッションを起動したアプリ（旧ファイル互換のため optional）
+    let created_at: String?      // 初回作成時刻（表示順の固定に使用。旧ファイル互換で optional）
 
     var id: String { session_id }
 
-    /// 表示の並び順優先度（確認待ちを最上位に）。
-    var sortRank: Int {
-        switch state {
-        case "waiting":    return 0
-        case "processing": return 1
-        default:           return 2   // idle
-        }
-    }
+    /// 表示の並び順キー（起動順で固定するため created_at、無ければ updated_at）。
+    var sortKey: String { created_at ?? updated_at }
 
     var color: Color {
         switch state {
-        case "waiting":    return .yellow
-        case "processing": return .green
-        default:           return .secondary
+        case "waiting":    return .yellow    // 明確なアクション待ち
+        case "done":       return .green     // 応答完了
+        case "processing": return .blue      // 処理中
+        default:           return .secondary // 待機
         }
     }
 
     var stateLabel: String {
         switch state {
-        case "waiting":    return "確認待ち"
+        case "waiting":    return "要対応"
+        case "done":       return "応答完了"
         case "processing": return "処理中"
         default:           return "待機"
         }
-    }
-
-    /// 最終更新が古い（hook 取りこぼし等）かどうか。表示を薄くする目安。
-    var isStale: Bool {
-        guard let date = ISO8601DateFormatter().date(from: updated_at) else { return false }
-        return Date().timeIntervalSince(date) > 30 * 60
     }
 }
 
@@ -60,7 +52,7 @@ final class SessionStore: ObservableObject {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         reload()
         startWatching()
-        // updated_at の経過（isStale 判定）を反映するための定期再描画。
+        // FSEvents を取りこぼした場合の保険として定期的に再読込する。
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             self?.reload()
         }
@@ -99,9 +91,10 @@ final class SessionStore: ObservableObject {
                   let s = try? decoder.decode(Session.self, from: data) else { continue }
             loaded.append(s)
         }
+        // 起動順で固定（ステータス変化で並びが動かないように）。同時刻は session_id で安定化。
         loaded.sort {
-            $0.sortRank != $1.sortRank ? $0.sortRank < $1.sortRank
-                                       : $0.label.localizedCompare($1.label) == .orderedAscending
+            $0.sortKey != $1.sortKey ? $0.sortKey < $1.sortKey
+                                     : $0.session_id < $1.session_id
         }
         sessions = loaded
     }
