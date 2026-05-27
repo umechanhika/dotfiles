@@ -27,6 +27,7 @@ struct ContentView: View {
 private struct SessionRow: View {
     let session: Session
     @State private var hovering = false
+    @State private var flash: Double = 0   // ステータス変化時のハイライト強度（0…1）
 
     var body: some View {
         HStack(spacing: 8) {
@@ -45,10 +46,23 @@ private struct SessionRow: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 3)
+        .background(session.color.opacity(flash * 0.22))          // 変化時の明滅（ステータス色・控えめ）
         .background(hovering ? Color.primary.opacity(0.08) : Color.clear)
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
         .onTapGesture { ITermFocus.focus(session: session) }
+        .onChange(of: session.state) { _ in flashHighlight() }
         .help(session.cwd)
+    }
+
+    /// ステータスが変わった行をステータス色で数回明滅させてから消す。
+    private func flashHighlight() {
+        flash = 1
+        withAnimation(.easeInOut(duration: 0.4).repeatCount(3, autoreverses: true)) {
+            flash = 0.15
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4 * 3) {
+            withAnimation(.easeOut(duration: 0.35)) { flash = 0 }
+        }
     }
 }
