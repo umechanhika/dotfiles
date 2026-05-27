@@ -15,6 +15,12 @@ export JAVA_HOME=/Applications/"Android Studio.app"/Contents/jbr/Contents/Home
 export PATH=$PATH:/Applications/"Android Studio.app"/Contents/jbr/Contents/Home/bin
 export PATH=$PATH:/Applications/"Android Studio.app"/Contents/MacOS
 
+# Detach Android Studio from the terminal so closing the terminal doesn't kill it
+function studio() {
+  nohup /Applications/Android\ Studio.app/Contents/MacOS/studio "$@" > /dev/null 2>&1 &
+  disown
+}
+
 export PATH=$PATH:~/Library/Android/sdk/platform-tools
 export PATH=$PATH:~/flutter/bin
 export PATH=$PATH:~/flutter/bin/cache/dart-sdk/bin
