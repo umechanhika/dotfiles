@@ -1,3 +1,6 @@
 .DS_Store
 .claude/settings.local.json
 .config/.claude/settings.local.json
+
+# agent-manager のビルド成果物（マシンローカル）
+agent-manager/.build/

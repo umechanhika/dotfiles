@@ -15,3 +15,8 @@ ln -s ~/dotfiles/.vim/.vimrc ~
 # Claude Code global skills
 ln -sf ~/dotfiles/.config/.claude/skills ~/.claude/skills
 ln -sf ~/dotfiles/.config/.claude/settings.json ~/.claude/settings.json
+
+# agent-manager (iTerm2上のClaude Codeセッション状態モニタ)
+# hookはsettings.jsonに登録済み。初回ビルドしておく（以降はSessionStart時に自動起動）。
+chmod +x ~/dotfiles/agent-manager/hooks/*.sh
+swift build --package-path ~/dotfiles/agent-manager -c release

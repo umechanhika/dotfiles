@@ -1,0 +1,31 @@
+{
+  "_comment": "この hooks ブロックを ~/.claude/settings.json（dotfiles実体: .config/.claude/settings.json）の最上位にマージしてください。SessionStart は状態書き込みフックと、未起動なら小窓アプリを起動するランチャーの2つを呼びます。",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "$HOME/dotfiles/agent-manager/hooks/agent-manager-hook.sh" },
+          { "type": "command", "command": "$HOME/dotfiles/agent-manager/hooks/agent-manager-launch.sh" }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "$HOME/dotfiles/agent-manager/hooks/agent-manager-hook.sh" }] }
+    ],
+    "PreToolUse": [
+      { "matcher": "*", "hooks": [{ "type": "command", "command": "$HOME/dotfiles/agent-manager/hooks/agent-manager-hook.sh" }] }
+    ],
+    "PostToolUse": [
+      { "matcher": "*", "hooks": [{ "type": "command", "command": "$HOME/dotfiles/agent-manager/hooks/agent-manager-hook.sh" }] }
+    ],
+    "Notification": [
+      { "hooks": [{ "type": "command", "command": "$HOME/dotfiles/agent-manager/hooks/agent-manager-hook.sh" }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "$HOME/dotfiles/agent-manager/hooks/agent-manager-hook.sh" }] }
+    ],
+    "SessionEnd": [
+      { "hooks": [{ "type": "command", "command": "$HOME/dotfiles/agent-manager/hooks/agent-manager-hook.sh" }] }
+    ]
+  }
+}
