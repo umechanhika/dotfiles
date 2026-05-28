@@ -25,7 +25,7 @@ fi
 [ -z "$branch" ] && return 0
 
 # worktrees を main_repo の兄弟ディレクトリに配置する
-# 例: ~/amami-android → ~/amami-android-worktrees/<dir_name>
+# 例: ~/path/to/<repo> → ~/path/to/<repo>-worktrees/<dir_name>
 # プロジェクト外に置くことで Android Studio が VCS ルートとして自動検出するのを防ぐ
 parent_dir=$(dirname "$main_repo")
 repo_name=$(basename "$main_repo")
