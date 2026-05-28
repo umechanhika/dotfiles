@@ -24,14 +24,16 @@ fi
 
 [ -z "$branch" ] && return 0
 
-# Add worktrees/ to .git/info/exclude (local only, never committed)
-exclude="$main_repo/.git/info/exclude"
-if ! grep -qx 'worktrees/' "$exclude" 2>/dev/null; then
-  echo 'worktrees/' >> "$exclude"
-fi
+# worktrees を main_repo の兄弟ディレクトリに配置する
+# 例: ~/amami-android → ~/amami-android-worktrees/<dir_name>
+# プロジェクト外に置くことで Android Studio が VCS ルートとして自動検出するのを防ぐ
+parent_dir=$(dirname "$main_repo")
+repo_name=$(basename "$main_repo")
+wt_root="$parent_dir/${repo_name}-worktrees"
+mkdir -p "$wt_root"
 
 dir_name=$(echo "$branch" | tr '/' '-')
-wt_path="$main_repo/worktrees/$dir_name"
+wt_path="$wt_root/$dir_name"
 
 if [ -d "$wt_path" ]; then
   echo "Worktree already exists. Pulling latest..."
