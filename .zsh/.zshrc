@@ -8,12 +8,11 @@ alias gs='git status'
 alias gp='git pull'
 
 # dotfiles
-export PATH=$PATH:~/dotfiles/.bin
+export PATH="$PATH:$HOME/dotfiles/.bin"
 
-# sdk
-export JAVA_HOME=/Applications/"Android Studio.app"/Contents/jbr/Contents/Home
-export PATH=$PATH:/Applications/"Android Studio.app"/Contents/jbr/Contents/Home/bin
-export PATH=$PATH:/Applications/"Android Studio.app"/Contents/MacOS
+# Java (Android Studio bundled JBR)
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+export PATH="$PATH:$JAVA_HOME/bin"
 
 # Detach Android Studio from the terminal so closing the terminal doesn't kill it
 function studio() {
@@ -21,10 +20,15 @@ function studio() {
   disown
 }
 
-export PATH=$PATH:~/Library/Android/sdk/platform-tools
-export PATH=$PATH:~/flutter/bin
-export PATH=$PATH:~/flutter/bin/cache/dart-sdk/bin
-export PATH=$PATH:~/.local/bin
+# sdk
+export PATH="$PATH:$HOME/Library/Android/sdk/platform-tools"
+export PATH="$PATH:$HOME/flutter/bin"
+export PATH="$PATH:$HOME/flutter/bin/cache/dart-sdk/bin"
+export PATH="$HOME/.local/bin:$PATH"
+
+# ruby
+export PATH="/opt/homebrew/opt/ruby/bin:$PATH"
+export PATH="/opt/homebrew/lib/ruby/gems/3.4.0/bin:$PATH"
 
 # prompt with git info using zsh built-in vcs_info
 autoload -Uz vcs_info
@@ -39,4 +43,4 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 # git completion using zsh built-in
 autoload -Uz compinit && compinit
 
-alias gwc='. ~/dotfiles/.bin/gwc.sh'
+alias gwc='. $HOME/dotfiles/.bin/gwc.sh'
