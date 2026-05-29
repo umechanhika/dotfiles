@@ -16,6 +16,8 @@
     </div>
     <div class="rd-topbar-right">
       <label class="rd-hint">選択／クリック → <kbd>⌘Enter</kbd>で追加 ・ <kbd>⌘⇧Enter</kbd>で一括送信</label>
+      <button id="rd-sidebar-toggle" class="rd-icon-btn" type="button"
+              aria-label="コメントパネルの開閉" aria-expanded="true" title="コメントパネルの開閉">☰</button>
     </div>
   </header>
 
@@ -23,7 +25,7 @@
     <article id="rd-content" aria-label="プレビュー"></article>
   </main>
 
-  <aside id="rd-sidebar">
+  <aside id="rd-sidebar" aria-label="コメントパネル">
     <div class="rd-sidebar-head">
       <h2>コメント <span id="rd-count" class="rd-badge">0</span></h2>
     </div>
@@ -44,7 +46,10 @@
     </div>
   </div>
 
-  <div id="rd-toast" class="rd-toast" hidden></div>
+  <div id="rd-toast" class="rd-toast"></div>
+
+  <!-- Visually hidden live region: announces Claude's updates to assistive tech. -->
+  <div id="rd-live" class="rd-sr-only" aria-live="polite" role="status"></div>
 
   <script src="/lib/comment.js"></script>
   <script>
