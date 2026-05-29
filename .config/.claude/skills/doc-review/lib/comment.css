@@ -84,7 +84,27 @@ html, body {
 #rd-content th, #rd-content td { border: 1px solid #ddd; padding: 6px 10px; }
 #rd-content blockquote { border-left: 4px solid #ddd; margin: 0; padding-left: 16px; color: #555; }
 
-/* ---------- hover / commented highlight ---------- */
+/* ---------- HTML preview iframe ----------
+   HTML targets render here so the file's own <head> CSS applies in an isolated
+   document (no cascade from this chrome). The iframe scrolls internally and has
+   a fixed height so marker coordinates stay stable. We don't style its content
+   — that's the point; we only size/frame the box itself. The hover/marker CSS
+   the content needs is injected INTO the iframe document by comment.js
+   (FRAME_OVERLAY_CSS), since these rules can't cross the iframe boundary. */
+#rd-frame {
+  width: 100%;
+  max-width: 1200px;
+  height: calc(100vh - var(--rd-topbar-h) - 64px);
+  border: 0;
+  background: var(--rd-bg);
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+
+/* ---------- hover / commented highlight ----------
+   NOTE: .rd-hover / .rd-commented / .rd-marker / .rd-stale (+ the rdflash
+   keyframes below) are mirrored in comment.js FRAME_OVERLAY_CSS for the HTML
+   iframe path. Keep the two in sync when editing marker appearance. */
 .rd-hover {
   outline: 2px solid var(--rd-hover) !important;
   outline-offset: 2px;
@@ -343,6 +363,7 @@ html, body {
     --rd-sidebar-bg: #181b21;
   }
   #rd-content { box-shadow: 0 1px 4px rgba(0,0,0,.5); }
+  #rd-frame { box-shadow: 0 1px 4px rgba(0,0,0,.5); }
   #rd-content code { color: #e6c07b; }
   #rd-content th, #rd-content td { border-color: #333a45; }
   #rd-content blockquote { border-left-color: #3a414c; color: #aab1bd; }
@@ -367,6 +388,7 @@ html, body {
 @media (max-width: 880px) {
   #rd-main { margin-right: 0; }
   #rd-content { padding: 32px 22px; }
+  #rd-frame { max-width: none; }
   .rd-icon-btn { display: inline-flex; }
   .rd-hint { display: none; }
   #rd-sidebar {

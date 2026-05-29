@@ -27,7 +27,7 @@ description: >
 
 ```
 ブラウザ(viewer.html + comment.js)
-   │  ① /source 取得 → md=marked描画 / html=そのまま表示
+   │  ① /source 取得 → md=marked描画 / html=iframe(/raw)に元CSSごと忠実描画
    │  ② コメント蓄積(⌘Enter追加) → ⌘⇧Enterで一括送信 → POST /threads/submit
    ▼
 serve.py (127.0.0.1, threads.json の唯一の書き手)

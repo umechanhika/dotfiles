@@ -34,6 +34,7 @@ import os
 import sys
 import threading
 import time
+import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Optional
@@ -44,6 +45,7 @@ from typing import Optional
 
 TARGET_PATH = ""          # absolute path of the single file under review
 TARGET_NAME = ""          # basename
+TARGET_DIR = ""           # directory holding the target (for /raw relative assets)
 TARGET_EXT = ""           # "md" | "markdown" | "html" | "htm"
 LIB_DIR = ""              # absolute path of the bundled lib/ directory
 WORK_DIR = ""             # absolute path of the working dir
@@ -181,6 +183,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._serve_lib_file("viewer.html")
         if path.startswith("/lib/"):
             return self._serve_lib_file(path[len("/lib/"):])
+        if path == "/raw" or path.startswith("/raw/"):
+            return self._serve_raw(path)
         if path == "/source":
             return self._serve_source()
         if path == "/threads":
@@ -209,6 +213,39 @@ class Handler(BaseHTTPRequestHandler):
         full = os.path.realpath(os.path.join(LIB_DIR, safe))
         lib_root = os.path.realpath(LIB_DIR)
         if not (full == lib_root or full.startswith(lib_root + os.sep)):
+            return self._send_error_json(403, "forbidden")
+        if not os.path.isfile(full):
+            return self._send_error_json(404, "not found")
+        try:
+            with open(full, "rb") as fh:
+                data = fh.read()
+        except OSError:
+            return self._send_error_json(404, "not found")
+        self._send_bytes(data, _content_type_for(full))
+
+    def _serve_raw(self, path: str) -> None:
+        # Serves the target file (and assets sitting next to it) so an iframe can
+        # render the HTML as its own document — head <style>/<link> intact and no
+        # cascade from the viewer chrome. The iframe loads "/raw/" (trailing
+        # slash) so the document's base URL is /raw/ and its relative href/src
+        # resolve to "/raw/<rel>", handled here.
+        rel = path[len("/raw"):]  # "" | "/" | "/sub/asset.css"
+        if rel in ("", "/"):
+            # The document itself.
+            try:
+                with open(TARGET_PATH, "rb") as fh:
+                    data = fh.read()
+            except OSError as exc:
+                return self._send_error_json(500, "cannot read source: %s" % exc)
+            return self._send_bytes(data, _content_type_for(TARGET_PATH))
+
+        # A sibling asset, resolved relative to the target's directory. Guard
+        # against path traversal the same way _serve_lib_file does: the resolved
+        # realpath must stay inside TARGET_DIR.
+        safe = os.path.normpath(urllib.parse.unquote(rel.lstrip("/")))
+        full = os.path.realpath(os.path.join(TARGET_DIR, safe))
+        root = os.path.realpath(TARGET_DIR)
+        if not (full == root or full.startswith(root + os.sep)):
             return self._send_error_json(403, "forbidden")
         if not os.path.isfile(full):
             return self._send_error_json(404, "not found")
@@ -368,6 +405,24 @@ def _content_type_for(path: str) -> str:
         return "application/json; charset=utf-8"
     if lower.endswith(".svg"):
         return "image/svg+xml"
+    if lower.endswith(".png"):
+        return "image/png"
+    if lower.endswith(".jpg") or lower.endswith(".jpeg"):
+        return "image/jpeg"
+    if lower.endswith(".gif"):
+        return "image/gif"
+    if lower.endswith(".webp"):
+        return "image/webp"
+    if lower.endswith(".ico"):
+        return "image/x-icon"
+    if lower.endswith(".woff2"):
+        return "font/woff2"
+    if lower.endswith(".woff"):
+        return "font/woff"
+    if lower.endswith(".ttf"):
+        return "font/ttf"
+    if lower.endswith(".otf"):
+        return "font/otf"
     return "application/octet-stream"
 
 
@@ -405,7 +460,7 @@ def _watcher(server: ThreadingHTTPServer, parent_pid: Optional[int], idle_timeou
 
 
 def run_server(args: argparse.Namespace) -> int:
-    global TARGET_PATH, TARGET_NAME, TARGET_EXT, LIB_DIR, WORK_DIR
+    global TARGET_PATH, TARGET_NAME, TARGET_DIR, TARGET_EXT, LIB_DIR, WORK_DIR
     global INBOX_PATH, THREADS_PATH
 
     TARGET_PATH = os.path.realpath(args.target)
@@ -413,6 +468,7 @@ def run_server(args: argparse.Namespace) -> int:
         sys.stderr.write("error: target not found: %s\n" % TARGET_PATH)
         return 2
     TARGET_NAME = os.path.basename(TARGET_PATH)
+    TARGET_DIR = os.path.dirname(TARGET_PATH)
     TARGET_EXT = TARGET_NAME.rsplit(".", 1)[-1].lower() if "." in TARGET_NAME else ""
     if TARGET_EXT not in ("md", "markdown", "html", "htm"):
         sys.stderr.write("error: unsupported file type '.%s' (md/html only)\n" % TARGET_EXT)

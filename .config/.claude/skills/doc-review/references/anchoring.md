@@ -42,7 +42,7 @@
 ### HTML ファイル
 
 **`type: "element"`**（要素クリック）
-- フィールド: `tag`, `css_path`(例 `#rd-content > section > h2:nth-of-type(2)`), `text`, `outer_html_excerpt`
+- フィールド: `tag`, `css_path`(例 `body > section > h2:nth-of-type(2)`), `text`, `outer_html_excerpt`
 - 解決: `outer_html_excerpt` の特徴的な文字列を元htmlから検索して要素を特定（`css_path` は構造の補助情報）。
 
 **`type: "range"`**（テキスト選択）

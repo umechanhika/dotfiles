@@ -37,9 +37,65 @@ var ReviewDoc = (function () {
   };
 
   // ---- DOM refs (set once in start) ----
-  var elContent, elFilename, elStatus, elList, elCount, elSend, elSendNote, elToast, elLive;
+  var elContent, elFrame, elFilename, elStatus, elList, elCount, elSend, elSendNote, elToast, elLive;
   var elSidebar, elSidebarToggle;
   var pop, popTarget, popText, popAdd, popCancel;
+
+  // ---- the "doc root": what document/container the content lives in ----
+  // Markdown renders into #rd-content (parent document). HTML renders into the
+  // iframe so the target's own <head> CSS applies in isolation — so every
+  // function that touches the *content* (hover, selection, markers, css paths)
+  // must operate on the iframe's document instead of the parent's. docEnv is the
+  // single switch: it's recomputed on each render (null until the iframe loads,
+  // which transparently falls back to the parent — harmless, since #rd-content is
+  // empty/hidden in HTML mode). The chrome (sidebar, popover, toast) always uses
+  // the parent document.
+  var docEnv = null;   // { doc, root, frame } | null
+  function isHtml()  { return !!(state.meta && state.meta.kind === "html"); }
+  function rdDoc()   { return docEnv ? docEnv.doc   : document; }   // owns selection/ranges
+  function rdRoot()  { return docEnv ? docEnv.root  : elContent; } // marker host container
+  function rdFrame() { return docEnv ? docEnv.frame : null; }
+
+  // Rects measured inside the iframe are relative to the iframe's own viewport;
+  // the popover lives in the parent and is positioned in parent coords. Shift by
+  // the iframe's offset within the parent (identity in markdown mode).
+  function frameOffset() {
+    var f = rdFrame();
+    if (!f) return { x: 0, y: 0 };
+    var r = f.getBoundingClientRect();
+    return { x: r.left, y: r.top };
+  }
+  function toParentRect(r) {
+    var o = frameOffset();
+    return {
+      left: r.left + o.x, right: r.right + o.x,
+      top: r.top + o.y, bottom: r.bottom + o.y
+    };
+  }
+
+  // Marker / hover / flash styles for the HTML iframe. comment.css can't reach
+  // inside the iframe document, so we inject an equivalent subset on each load.
+  // NOTE: keep visually in sync with the matching rules in comment.css. The
+  // marker gutter is *inside* the block's top-left (positive left) because an
+  // arbitrary report has no guaranteed left padding to bleed a marker into.
+  var FRAME_OVERLAY_CSS = [
+    ":root{--rd-hover:#4a90d9;--rd-commented:#e8821a;--rd-draft:#8a8f98;--rd-answered:#2f8a3c;}",
+    ".rd-hover{outline:2px solid var(--rd-hover) !important;outline-offset:2px;border-radius:3px;cursor:pointer;}",
+    ".rd-commented{outline:2px solid var(--rd-commented) !important;outline-offset:2px;border-radius:3px;position:relative;}",
+    ".rd-marker{position:absolute;top:-10px;left:4px;min-width:20px;height:20px;padding:0 5px;" +
+      "background:var(--rd-commented);color:#fff;font-size:12px;font-weight:700;line-height:1;border:none;" +
+      "-webkit-appearance:none;appearance:none;border-radius:10px;display:flex;align-items:center;" +
+      "justify-content:center;cursor:pointer;z-index:2147483646;" +
+      "font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Helvetica Neue',sans-serif;}",
+    ".rd-marker:hover{transform:scale(1.15);box-shadow:0 1px 5px rgba(0,0,0,.3);}",
+    ".rd-marker:focus-visible{outline:2px solid #fff;outline-offset:1px;}",
+    ".rd-marker.draft{background:var(--rd-draft);}",
+    ".rd-marker.answered{background:var(--rd-answered);}",
+    ".rd-stale{outline-color:#b0b0b0 !important;}",
+    ".rd-stale .rd-marker{background:#b0b0b0;}",
+    "@keyframes rdflash{0%{box-shadow:0 0 0 0 rgba(232,130,26,.55);}100%{box-shadow:0 0 0 8px rgba(232,130,26,0);}}",
+    ".rd-flash{animation:rdflash .85s ease-out;}"
+  ].join("\n");
 
   function noop() {}
 
@@ -75,6 +131,7 @@ var ReviewDoc = (function () {
   // ===================================================================
   function start() {
     elContent = document.getElementById("rd-content");
+    elFrame = document.getElementById("rd-frame");
     elFilename = document.getElementById("rd-filename");
     elStatus = document.getElementById("rd-status");
     elList = document.getElementById("rd-list");
@@ -150,32 +207,93 @@ var ReviewDoc = (function () {
 
   // Render the body + (re)attach markers + (re)render sidebar. When
   // preserveScroll is set (a live update) we keep the reader where they were.
+  //
+  // Markdown is synchronous (parse into #rd-content, attach markers now). HTML
+  // loads the iframe, which is async: marker attachment + scroll restore happen
+  // in the iframe's load handler (onFrameLoad), not here.
   function applySource(data, preserveScroll) {
-    var scroller = document.scrollingElement || document.documentElement;
-    var y = preserveScroll ? scroller.scrollTop : 0;
     state.meta = data;
     elFilename.textContent = data.name;
-    render();
-    refreshView();
-    if (preserveScroll) scroller.scrollTop = y;
+    if (isHtml()) {
+      var prevY = 0;
+      if (preserveScroll && elFrame && elFrame.contentWindow) {
+        try { prevY = elFrame.contentWindow.scrollY || 0; } catch (e) { /* not loaded yet */ }
+      }
+      state.pendingScrollY = prevY;
+      showFrame(true);
+      loadFrame();
+    } else {
+      showFrame(false);
+      var scroller = document.scrollingElement || document.documentElement;
+      var y = preserveScroll ? scroller.scrollTop : 0;
+      render();
+      refreshView();
+      if (preserveScroll) scroller.scrollTop = y;
+    }
+  }
+
+  function showFrame(on) {
+    if (!elFrame) return;
+    elFrame.hidden = !on;
+    elContent.hidden = on;
   }
 
   // ===================================================================
   // rendering the document
   // ===================================================================
+  // Markdown only — HTML goes through the iframe (loadFrame/onFrameLoad).
   function render() {
+    docEnv = { doc: document, root: elContent, frame: null };
     elContent.innerHTML = "";
     state.blockRaws = [];
-    if (state.meta.kind === "html") {
-      elContent.innerHTML = extractHtmlBody(state.meta.content);
-    } else {
-      renderMarkdown(state.meta.content);
-    }
+    renderMarkdown(state.meta.content);
   }
 
-  function extractHtmlBody(html) {
-    var m = /<body[^>]*>([\s\S]*?)<\/body>/i.exec(html);
-    return m ? m[1] : html;
+  // Load the target HTML into the iframe. We point at "/raw/" (trailing slash)
+  // so the document's base URL is /raw/ and its relative href/src resolve to
+  // "/raw/<rel>" (served from the target's own directory). The cache-buster
+  // guarantees Claude's edits are re-read even if the engine caches the frame.
+  function loadFrame() {
+    docEnv = null;   // fall back to the parent until the new document is ready
+    state.frameSeq = (state.frameSeq || 0) + 1;
+    elFrame.onload = onFrameLoad;
+    elFrame.src = "/raw/?n=" + state.frameSeq;
+  }
+
+  function onFrameLoad() {
+    var doc;
+    try { doc = elFrame.contentDocument; } catch (e) { doc = null; }
+    if (!doc) { setStatus("プレビューを読み込めませんでした"); return; }
+    var root = doc.body || doc.documentElement;
+    docEnv = { doc: doc, root: root, frame: elFrame };
+    injectFrameOverlay(doc);
+    // Interaction listeners live on the freshly-loaded document. A new document
+    // each load means old listeners are discarded with it — no leak.
+    root.addEventListener("mousemove", onHover);
+    root.addEventListener("mouseleave", clearHover);
+    doc.addEventListener("mouseup", onMouseUp);
+    // Keyboard events don't cross the iframe boundary, so when focus sits inside
+    // the frame the global shortcuts (Esc, ⌘⇧Enter send) would be missed. These
+    // are parent closures; attaching them to the frame doc keeps them working.
+    doc.addEventListener("keydown", onGlobalKey);
+    state.hovered = null;
+    refreshView();   // place markers for the current threads/drafts inside the frame
+    if (elFrame.contentWindow) {
+      try { elFrame.contentWindow.scrollTo(0, state.pendingScrollY || 0); } catch (e) { /* best effort */ }
+    }
+    state.pendingScrollY = 0;
+  }
+
+  function injectFrameOverlay(doc) {
+    var head = doc.head || doc.documentElement;
+    if (!head) return;
+    var style = doc.getElementById("rd-overlay-style");
+    if (!style) {
+      style = doc.createElement("style");
+      style.id = "rd-overlay-style";
+      head.appendChild(style);
+    }
+    style.textContent = FRAME_OVERLAY_CSS;
   }
 
   // Render markdown block-by-block. We intentionally parse each top-level token
@@ -228,7 +346,7 @@ var ReviewDoc = (function () {
     var target = blockOf(e.target);
     if (target === state.hovered) return;
     clearHover();
-    if (target && target !== elContent) {
+    if (target && target !== rdRoot()) {
       target.classList.add("rd-hover");
       state.hovered = target;
     }
@@ -238,14 +356,27 @@ var ReviewDoc = (function () {
   }
 
   function blockOf(node) {
-    if (!node || node === elContent) return null;
-    if (state.meta && state.meta.kind === "html") {
-      var el = node.nodeType === 3 ? node.parentElement : node;
-      if (!elContent.contains(el)) return null;
-      return el === elContent ? null : el;
+    var root = rdRoot();
+    if (!node || node === root) return null;
+    if (isHtml()) {
+      var raw = node.nodeType === 3 ? node.parentElement : node;
+      if (!raw || !root.contains(raw)) return null;
+      // Climb to the nearest block-ish element. Pinning an absolutely-positioned
+      // marker on an inline box (<span>/<a>/<em>) is unreliable — inline boxes
+      // wrap and `position:relative` on them is weakly defined — so walk up to
+      // an element whose computed display isn't inline/inline-*.
+      var win = rdDoc().defaultView;
+      var el = raw;
+      while (el && el !== root) {
+        var disp = win ? win.getComputedStyle(el).display : "block";
+        if (disp.indexOf("inline") !== 0) break;
+        el = el.parentElement;
+      }
+      if (!el || el === root) el = raw;   // everything up to <body> was inline: use the clicked element
+      return el && el !== root && root.contains(el) ? el : null;
     }
     var blk = node.nodeType === 3 ? node.parentElement : node;
-    while (blk && blk !== elContent && !(blk.dataset && blk.dataset.srcblock)) {
+    while (blk && blk !== root && !(blk.dataset && blk.dataset.srcblock)) {
       blk = blk.parentElement;
     }
     return blk && blk.dataset && blk.dataset.srcblock !== undefined ? blk : null;
@@ -258,20 +389,20 @@ var ReviewDoc = (function () {
     // Clicking a marker badge is "jump to comment", not "comment on this block".
     if (e.target.closest && e.target.closest(".rd-marker")) return;
     setTimeout(function () {
-      var sel = window.getSelection();
+      var sel = rdDoc().getSelection();
       var text = sel && !sel.isCollapsed ? sel.toString() : "";
       if (text && text.trim() && withinContent(sel)) {
         openRangeComment(sel);
       } else {
         var blk = blockOf(e.target);
-        if (blk && blk !== elContent) openBlockComment(blk);
+        if (blk && blk !== rdRoot()) openBlockComment(blk);
       }
     }, 0);
   }
 
   function withinContent(sel) {
     if (!sel.rangeCount) return false;
-    return elContent.contains(sel.getRangeAt(0).commonAncestorContainer);
+    return rdRoot().contains(sel.getRangeAt(0).commonAncestorContainer);
   }
 
   function openRangeComment(sel) {
@@ -279,8 +410,8 @@ var ReviewDoc = (function () {
     var blk = blockOf(range.startContainer);
     var selectedText = sel.toString();
     var anchor;
-    if (state.meta.kind === "html") {
-      var host = blk || elContent;
+    if (isHtml()) {
+      var host = blk || rdRoot();
       anchor = {
         type: "range", kind: "html", selected_text: selectedText,
         css_path: cssPath(host), outer_html_excerpt: excerpt(host.outerHTML, 400),
@@ -297,12 +428,12 @@ var ReviewDoc = (function () {
       if (blk) fillContext(anchor, blk, range, selectedText);
     }
     state.draftAnchor = anchor; state.draftBlock = blk;
-    showPopover(describeAnchor(anchor), rectOf(range));
+    showPopover(describeAnchor(anchor), toParentRect(rectOf(range)));
   }
 
   function openBlockComment(blk) {
     var anchor;
-    if (state.meta.kind === "html") {
+    if (isHtml()) {
       anchor = {
         type: "element", kind: "html", tag: blk.tagName.toLowerCase(),
         css_path: cssPath(blk), text: excerpt(blk.textContent.trim(), 200),
@@ -319,12 +450,12 @@ var ReviewDoc = (function () {
       if (hd) { anchor.heading_level = parseInt(hd[1], 10); anchor.heading_text = blk.textContent.trim(); }
     }
     state.draftAnchor = anchor; state.draftBlock = blk;
-    showPopover(describeAnchor(anchor), blk.getBoundingClientRect());
+    showPopover(describeAnchor(anchor), toParentRect(blk.getBoundingClientRect()));
   }
 
   function fillContext(anchor, blockEl, range, selectedText) {
     try {
-      var pre = document.createRange();
+      var pre = rdDoc().createRange();
       pre.setStart(blockEl, 0);
       pre.setEnd(range.startContainer, range.startOffset);
       var startOffset = pre.toString().length;
@@ -384,7 +515,7 @@ var ReviewDoc = (function () {
   function closePopover() {
     pop.hidden = true;
     state.draftAnchor = null; state.draftBlock = null;
-    var sel = window.getSelection();
+    var sel = rdDoc().getSelection();
     if (sel) sel.removeAllRanges();
   }
   function onPopoverAdd() {
@@ -418,7 +549,15 @@ var ReviewDoc = (function () {
   // Vertical position of a block within the document (for ordering). Unresolved
   // anchors sort to the end.
   function blockTop(blk) {
-    if (blk && elContent.contains(blk)) {
+    if (blk && rdRoot().contains(blk)) {
+      if (isHtml()) {
+        // The iframe content scrolls internally; add its own scroll origin so
+        // the metric is the block's absolute position in the document order,
+        // independent of where the frame is currently scrolled.
+        var win = rdFrame() && rdFrame().contentWindow;
+        var sy = win ? (win.scrollY || 0) : 0;
+        return blk.getBoundingClientRect().top + sy;
+      }
       var scroller = document.scrollingElement || document.documentElement;
       return blk.getBoundingClientRect().top + scroller.scrollTop;
     }
@@ -606,37 +745,41 @@ var ReviewDoc = (function () {
   // markers on the document + jump-to linking (comment <-> body)
   // ===================================================================
   function markBlock(block, key, num, cls) {
-    if (!block || block === elContent) return;
+    if (!block || block === rdRoot()) return;
     block.classList.add("rd-commented");
     if (cls) block.classList.add(cls);
     // Relative positioning is handled by `.rd-commented { position: relative }`
-    // in CSS — no getComputedStyle read here, so marker placement doesn't force
-    // a synchronous layout on every refresh.
-    var marker = h("button", {
-      "class": "rd-marker" + (cls ? " " + cls : ""),
-      type: "button",
-      title: "コメント " + (num != null ? num : ""),
-      "aria-label": "コメント " + (num != null ? num : "") + " を表示",
-      dataset: { key: key },
-      text: num != null ? String(num) : "•",
-      on: { click: function (e) { e.stopPropagation(); focusThreadCard(key); } }
-    });
+    // — no getComputedStyle read here, so marker placement doesn't force a
+    // synchronous layout on every refresh. Build the marker with the content's
+    // own document (rdDoc) so it can live inside the iframe; the click handler
+    // is still a parent closure (same-origin) calling the parent sidebar.
+    var d = rdDoc();
+    var marker = d.createElement("button");
+    marker.className = "rd-marker" + (cls ? " " + cls : "");
+    marker.type = "button";
+    marker.title = "コメント " + (num != null ? num : "");
+    marker.setAttribute("aria-label", "コメント " + (num != null ? num : "") + " を表示");
+    marker.dataset.key = key;
+    marker.textContent = num != null ? String(num) : "•";
+    marker.addEventListener("click", function (e) { e.stopPropagation(); focusThreadCard(key); });
     block.appendChild(marker);
   }
   function clearMarkers() {
-    Array.prototype.forEach.call(elContent.querySelectorAll(".rd-marker"), function (m) { m.remove(); });
-    Array.prototype.forEach.call(elContent.querySelectorAll(".rd-commented"), function (b) {
+    var root = rdRoot();
+    Array.prototype.forEach.call(root.querySelectorAll(".rd-marker"), function (m) { m.remove(); });
+    Array.prototype.forEach.call(root.querySelectorAll(".rd-commented"), function (b) {
       b.classList.remove("rd-commented", "draft", "answered", "stale");
     });
   }
 
   function anchorToBlock(a) {
     if (!a) return null;
+    var root = rdRoot();
     if (a.kind === "markdown" && typeof a.block_index === "number" && a.block_index >= 0) {
-      return elContent.querySelector('[data-srcblock="' + a.block_index + '"]');
+      return root.querySelector('[data-srcblock="' + a.block_index + '"]');
     }
     if (a.kind === "html" && a.css_path) {
-      try { return elContent.querySelector(stripRootPath(a.css_path)); } catch (e) { return null; }
+      try { return root.querySelector(stripRootPath(a.css_path)); } catch (e) { return null; }
     }
     return null;
   }
@@ -648,7 +791,7 @@ var ReviewDoc = (function () {
     clearMarkers();
     o.order.forEach(function (e) {
       var blk = e.kind === "draft" ? (anchorToBlock(e.ref.anchor) || e.ref.block) : anchorToBlock(e.ref.anchor);
-      if (!blk || !elContent.contains(blk)) return;
+      if (!blk || !rdRoot().contains(blk)) return;
       var cls = e.kind === "draft" ? "draft" : (e.ref.status === "answered" ? "answered" : null);
       markBlock(blk, e.key, o.nums[e.key], cls);
     });
@@ -656,7 +799,7 @@ var ReviewDoc = (function () {
 
   // sidebar card -> body block
   function focusBlock(key) {
-    var marker = elContent.querySelector('.rd-marker[data-key="' + key + '"]');
+    var marker = rdRoot().querySelector('.rd-marker[data-key="' + key + '"]');
     if (!marker) return;
     var blk = marker.parentElement;
     if (blk) { blk.scrollIntoView({ behavior: "smooth", block: "center" }); flash(blk); }
@@ -810,11 +953,17 @@ var ReviewDoc = (function () {
   // ===================================================================
   // utils
   // ===================================================================
+  // CSS path rooted at the real document root (the iframe's <body> for HTML),
+  // so the path actually describes the user's source HTML structure. css_path is
+  // supplementary anchoring info (outer_html_excerpt is the primary key); the
+  // root prefix is stripped by stripRootPath before querying within rdRoot().
   function cssPath(el) {
-    if (!el || el === elContent) return "#rd-content";
+    var root = rdRoot();
+    var rootName = isHtml() ? "body" : "#rd-content";
+    if (!el || el === root) return rootName;
     var parts = [];
     var node = el;
-    while (node && node !== elContent && node.nodeType === 1) {
+    while (node && node !== root && node.nodeType === 1) {
       var sel = node.tagName.toLowerCase();
       var parent = node.parentElement;
       if (parent) {
@@ -826,9 +975,9 @@ var ReviewDoc = (function () {
       parts.unshift(sel);
       node = parent;
     }
-    return "#rd-content > " + parts.join(" > ");
+    return rootName + " > " + parts.join(" > ");
   }
-  function stripRootPath(path) { return path.replace(/^#rd-content\s*>\s*/, ""); }
+  function stripRootPath(path) { return path.replace(/^(?:#rd-content|body)\s*>\s*/, ""); }
   function excerpt(s, n) { s = s || ""; return s.length > n ? s.slice(0, n) + "…" : s; }
   function escapeHtml(s) {
     return (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
