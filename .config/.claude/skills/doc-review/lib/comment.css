@@ -8,8 +8,16 @@
   --rd-answered: #2f8a3c;
   --rd-resolved: #b0b4ba;
   --rd-bg: #ffffff;
+  --rd-fg: #1a1a1a;
+  --rd-page-bg: #f4f5f7;
+  --rd-card-border: #e6e8ec;
+  --rd-code-bg: #f5f7fa;
+  --rd-inline-code-bg: #eef2f6;
+  --rd-target-bg: #eef2f6;
+  --rd-sidebar-bg: #ffffff;
   --rd-sidebar-w: 340px;
   --rd-topbar-h: 48px;
+  --rd-gutter: 26px;   /* horizontal offset of the marker badge from its block */
 }
 
 * { box-sizing: border-box; }
@@ -18,8 +26,8 @@ html, body {
   margin: 0;
   padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Helvetica Neue", sans-serif;
-  color: #1a1a1a;
-  background: #f4f5f7;
+  color: var(--rd-fg);
+  background: var(--rd-page-bg);
 }
 
 /* ---------- top bar ---------- */
@@ -61,12 +69,12 @@ html, body {
 }
 #rd-content img { max-width: 100%; }
 #rd-content pre {
-  background: #f5f7fa;
+  background: var(--rd-code-bg);
   padding: 12px 14px;
   border-radius: 6px;
   overflow-x: auto;
 }
-#rd-content code { background: #eef2f6; padding: 1px 5px; border-radius: 3px; }
+#rd-content code { background: var(--rd-inline-code-bg); padding: 1px 5px; border-radius: 3px; }
 #rd-content pre code { background: none; padding: 0; }
 #rd-content .rd-table-scroll { overflow-x: auto; max-width: 100%; }
 /* keep column widths at their natural content size so narrowing the window
@@ -82,26 +90,36 @@ html, body {
   outline-offset: 2px;
   border-radius: 3px;
   cursor: pointer;
+  transition: outline-color .15s ease;
 }
 .rd-commented {
   outline: 2px solid var(--rd-commented) !important;
   outline-offset: 2px;
   border-radius: 3px;
   position: relative;
+  transition: outline-color .15s ease;
 }
 .rd-marker {
   position: absolute;
-  top: -10px; left: -26px;
+  top: -10px; left: calc(-1 * var(--rd-gutter));
   min-width: 20px; height: 20px;
   padding: 0 5px;
   background: var(--rd-commented);
   color: #fff;
   font-size: 0.72rem;
   font-weight: 700;
+  font-family: inherit;
+  line-height: 1;
+  border: none;
+  appearance: none; -webkit-appearance: none;
   border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
   z-index: 5;
+  transition: transform .15s ease, box-shadow .15s ease;
 }
+.rd-marker:hover { transform: scale(1.15); box-shadow: 0 1px 5px rgba(0,0,0,.3); }
+.rd-marker:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
 .rd-stale { outline-color: #b0b0b0 !important; }
 .rd-stale .rd-marker { background: #b0b0b0; }
 
@@ -110,7 +128,7 @@ html, body {
   position: fixed;
   top: var(--rd-topbar-h); right: 0; bottom: 0;
   width: var(--rd-sidebar-w);
-  background: #fff;
+  background: var(--rd-sidebar-bg);
   border-left: 1px solid #e2e4e8;
   display: flex;
   flex-direction: column;
@@ -144,7 +162,7 @@ html, body {
 .rd-item-kind { font-size: 0.72rem; color: #888; }
 .rd-item-del { border: none; background: none; color: #b00; cursor: pointer; font-size: 0.8rem; }
 .rd-item-target {
-  font-size: 0.78rem; color: #555; background: #eef2f6;
+  font-size: 0.78rem; color: #555; background: var(--rd-target-bg);
   border-radius: 4px; padding: 4px 8px; margin-bottom: 6px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
@@ -178,9 +196,19 @@ html, body {
   border-radius: 8px;
   box-shadow: 0 6px 24px rgba(0,0,0,.18);
   padding: 12px;
+  opacity: 1; transform: none;
+  transition: opacity .16s ease, transform .16s ease;
+}
+/* Animate show/hide: keep it in the box model while hidden (absolute, so no
+   reflow) and just fade/scale it, instead of a hard display flip. */
+.rd-popover[hidden] {
+  display: block;
+  opacity: 0;
+  transform: scale(.97);
+  pointer-events: none;
 }
 .rd-popover-target {
-  font-size: 0.76rem; color: #555; background: #eef2f6;
+  font-size: 0.76rem; color: #555; background: var(--rd-target-bg);
   border-radius: 4px; padding: 4px 8px; margin-bottom: 8px;
   max-height: 48px; overflow: hidden;
 }
@@ -195,12 +223,15 @@ html, body {
 .rd-toast {
   position: fixed;
   bottom: 20px; left: 50%;
-  transform: translateX(-50%);
   background: #1f2430; color: #fff;
   padding: 10px 18px; border-radius: 20px;
   font-size: 0.85rem; z-index: 200;
   box-shadow: 0 4px 16px rgba(0,0,0,.25);
+  opacity: 0; pointer-events: none;
+  transform: translateX(-50%) translateY(8px);
+  transition: opacity .25s ease, transform .25s ease;
 }
+.rd-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 /* ---------- v2: threads / bubbles / status ---------- */
 .rd-item.draft { border-style: dashed; border-color: var(--rd-draft); background: #fbfbfc; }
@@ -251,4 +282,100 @@ html, body {
 .rd-resolved-group { margin-top: 10px; border-top: 1px dashed #ddd; padding-top: 8px; }
 .rd-resolved-group > summary {
   cursor: pointer; font-size: 0.82rem; color: #777; padding: 4px 2px; user-select: none;
+}
+
+/* ---------- jump-to flash (comment <-> body linking) ---------- */
+@keyframes rdflash {
+  0%   { box-shadow: 0 0 0 0 rgba(232,130,26,.55); }
+  100% { box-shadow: 0 0 0 8px rgba(232,130,26,0); }
+}
+.rd-flash { animation: rdflash .85s ease-out; }
+.rd-item { cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
+.rd-item:hover { border-color: var(--rd-commented); }
+/* controls inside a card keep their own cursor (the card itself is the jump target) */
+.rd-item button, .rd-item textarea { cursor: auto; }
+.rd-item button { cursor: pointer; }
+
+/* ---------- buttons: subtle motion ---------- */
+.rd-btn { transition: background .15s ease, transform .1s ease; }
+.rd-btn:active { transform: translateY(1px); }
+
+/* ---------- topbar icon button (sidebar toggle) ---------- */
+.rd-icon-btn {
+  border: 1px solid rgba(255,255,255,.3); background: transparent; color: #fff;
+  border-radius: 6px; width: 32px; height: 30px; font-size: 1rem; cursor: pointer;
+  display: none;            /* shown only on narrow screens (see media query) */
+  align-items: center; justify-content: center; line-height: 1;
+  transition: background .15s ease;
+}
+.rd-icon-btn:hover { background: rgba(255,255,255,.14); }
+
+/* ---------- screen-reader-only live region ---------- */
+.rd-sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ============================================================
+   Accessibility: honor reduced-motion. Transitions/animations are
+   decorative here, so disabling them changes nothing functional.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .rd-popover, .rd-toast, .rd-marker, .rd-commented, .rd-hover,
+  .rd-item, .rd-btn, .rd-icon-btn, #rd-sidebar { transition: none !important; }
+  .rd-flash { animation: none !important; }
+  html { scroll-behavior: auto; }
+}
+
+/* ============================================================
+   Dark theme — only overrides the :root variables plus a few
+   surfaces that can't be expressed as a single token.
+   ============================================================ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --rd-bg: #1b1e24;
+    --rd-fg: #d8dbe0;
+    --rd-page-bg: #121419;
+    --rd-card-border: #2c313b;
+    --rd-code-bg: #161a20;
+    --rd-inline-code-bg: #262b34;
+    --rd-target-bg: #21262e;
+    --rd-sidebar-bg: #181b21;
+  }
+  #rd-content { box-shadow: 0 1px 4px rgba(0,0,0,.5); }
+  #rd-content code { color: #e6c07b; }
+  #rd-content th, #rd-content td { border-color: #333a45; }
+  #rd-content blockquote { border-left-color: #3a414c; color: #aab1bd; }
+  #rd-sidebar { border-left-color: #2c313b; }
+  .rd-sidebar-head, .rd-sidebar-foot { border-color: #2c313b; }
+  .rd-item { background: #1f242c; border-color: var(--rd-card-border); }
+  .rd-item-target { color: #aab1bd; }
+  .rd-bubble.user { background: #262b34; }
+  .rd-bubble.claude { background: #1c2a22; border-color: #2f4a39; }
+  .rd-bubble.draft { background: #2e2a1d; border-color: #5a4d2e; }
+  .rd-popover { background: #1f242c; border-color: #333a45; color: var(--rd-fg); }
+  .rd-popover textarea, .rd-reply textarea { background: #161a20; color: var(--rd-fg); border-color: #333a45; }
+  .rd-btn-ghost { background: #262b34; border-color: #3a414c; color: #d8dbe0; }
+  .rd-btn-ghost:hover { background: #2f343d; }
+  .rd-item-resolve { background: #262b34; border-color: #3a414c; color: #c4c9d2; }
+}
+
+/* ============================================================
+   Responsive: below 880px the sidebar becomes a right-side drawer
+   so the body isn't squeezed. The ☰ button toggles it.
+   ============================================================ */
+@media (max-width: 880px) {
+  #rd-main { margin-right: 0; }
+  #rd-content { padding: 32px 22px; }
+  .rd-icon-btn { display: inline-flex; }
+  .rd-hint { display: none; }
+  #rd-sidebar {
+    transform: translateX(100%);
+    transition: transform .22s ease;
+    box-shadow: -4px 0 18px rgba(0,0,0,.18);
+  }
+  #rd-sidebar.open { transform: translateX(0); }
+  /* keep marker badges inside the (now narrower) content card */
+  :root { --rd-gutter: -6px; }   /* negative gutter => marker sits just inside the left edge */
+  .rd-marker { top: -8px; }
 }

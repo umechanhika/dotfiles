@@ -8,23 +8,67 @@
  * - Claude edits the file and replies per thread; replies show under the comment
  * - Re-feedback: reply again on a thread whose edit wasn't right
  * - Comments persist (server-side threads.json) until the user resolves them
+ *
+ * Data flow notes:
+ * - The browser polls GET /rev (cheap, rev-only). Only when rev grows does it
+ *   pull /threads + /source. The body is re-parsed ONLY when the source content
+ *   actually changed (mtime/content), so a Claude reply (which doesn't touch the
+ *   file) no longer wipes and re-renders the whole document — scroll position,
+ *   selection, and the open popover survive.
+ * - Comment numbering follows document order (vertical position), so the marker
+ *   numbers in the body match the sidebar order.
  */
 var ReviewDoc = (function () {
   "use strict";
 
-  var meta = null;            // {name, ext, kind, content, ...}
-  var blockRaws = [];         // markdown: raw source text per top-level block
-  var threads = [];           // server-synced: [{id, anchor, status, messages}]
-  var pending = [];           // local unsent: {pid, type:'new'|'reply', thread_id?, anchor?, text, block?}
-  var lastRev = -1;
-  var seq = 0;
-  var pollTimer = null;
+  // ---- mutable data state (single bag; see also DOM refs below) ----
+  var state = {
+    meta: null,          // {name, ext, kind, content, mtime, ...}
+    blockRaws: [],       // markdown: raw source text per top-level block
+    threads: [],         // server-synced: [{id, anchor, status, messages}]
+    pending: [],         // local unsent: {pid, type:'new'|'reply', thread_id?, anchor?, text, block?}
+    lastRev: -1,
+    seq: 0,
+    pollTimer: null,
+    draftAnchor: null,   // anchor being composed in the popover
+    draftBlock: null,
+    hovered: null,
+    toastTimer: null
+  };
 
-  // ---- DOM refs ----
-  var elContent, elFilename, elStatus, elList, elCount, elSend, elSendNote, elToast;
+  // ---- DOM refs (set once in start) ----
+  var elContent, elFilename, elStatus, elList, elCount, elSend, elSendNote, elToast, elLive;
+  var elSidebar, elSidebarToggle;
   var pop, popTarget, popText, popAdd, popCancel;
-  var draftAnchor = null;     // anchor being composed in the popover
-  var draftBlock = null;
+
+  function noop() {}
+
+  // Tiny DOM builder: h("div", {class, text, html, dataset, on:{evt:fn}, ...attrs}, children)
+  // Centralises the createElement/className/textContent boilerplate that was
+  // repeated across every sidebar component.
+  function h(tag, props, children) {
+    var node = document.createElement(tag);
+    if (props) {
+      Object.keys(props).forEach(function (k) {
+        var v = props[k];
+        if (v == null) return;
+        if (k === "class") { node.className = v; }
+        else if (k === "text") { node.textContent = v; }
+        else if (k === "html") { node.innerHTML = v; }
+        else if (k === "dataset") { Object.keys(v).forEach(function (d) { node.dataset[d] = v[d]; }); }
+        else if (k === "on") { Object.keys(v).forEach(function (ev) { node.addEventListener(ev, v[ev]); }); }
+        else if (k in node) { try { node[k] = v; } catch (e) { node.setAttribute(k, v); } }
+        else { node.setAttribute(k, v); }
+      });
+    }
+    if (children != null) {
+      (Array.isArray(children) ? children : [children]).forEach(function (c) {
+        if (c == null) return;
+        node.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+      });
+    }
+    return node;
+  }
 
   // ===================================================================
   // bootstrap
@@ -38,6 +82,9 @@ var ReviewDoc = (function () {
     elSend = document.getElementById("rd-send");
     elSendNote = document.getElementById("rd-send-note");
     elToast = document.getElementById("rd-toast");
+    elLive = document.getElementById("rd-live");
+    elSidebar = document.getElementById("rd-sidebar");
+    elSidebarToggle = document.getElementById("rd-sidebar-toggle");
     pop = document.getElementById("rd-popover");
     popTarget = document.getElementById("rd-popover-target");
     popText = document.getElementById("rd-popover-text");
@@ -47,6 +94,7 @@ var ReviewDoc = (function () {
     popAdd.addEventListener("click", onPopoverAdd);
     popCancel.addEventListener("click", closePopover);
     elSend.addEventListener("click", sendAll);
+    if (elSidebarToggle) elSidebarToggle.addEventListener("click", toggleSidebar);
 
     elContent.addEventListener("mousemove", onHover);
     elContent.addEventListener("mouseleave", clearHover);
@@ -57,7 +105,24 @@ var ReviewDoc = (function () {
     });
     document.addEventListener("keydown", onGlobalKey);
 
-    loadSource(true);
+    // Pause polling when the tab is hidden; resume (and check immediately) when
+    // it comes back. No point hammering the server while nobody is looking.
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) { stopPolling(); }
+      else { startPolling(); checkRev(); }
+    });
+
+    init();
+  }
+
+  function init() {
+    fetchSource()
+      .then(function (data) {
+        applySource(data, false);
+        return refreshThreads();
+      })
+      .then(function () { startPolling(); setStatus("準備完了"); })
+      .catch(function (err) { setStatus("読み込み失敗: " + err); });
   }
 
   function onGlobalKey(e) {
@@ -74,21 +139,25 @@ var ReviewDoc = (function () {
   }
 
   function setStatus(text) { elStatus.textContent = text; }
+  function announce(text) { if (elLive) elLive.textContent = text; }
 
-  function loadSource(initial) {
-    return fetch("/source", { cache: "no-store" })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        meta = data;
-        elFilename.textContent = data.name;
-        render();
-        reattachAll();
-        renderSidebar();
-        if (initial) {
-          return refreshThreads(true).then(function () { startPolling(); setStatus("準備完了"); });
-        }
-      })
-      .catch(function (err) { setStatus("読み込み失敗: " + err); });
+  // ===================================================================
+  // source: fetch vs apply (split so we can skip re-render when unchanged)
+  // ===================================================================
+  function fetchSource() {
+    return fetch("/source", { cache: "no-store" }).then(function (r) { return r.json(); });
+  }
+
+  // Render the body + (re)attach markers + (re)render sidebar. When
+  // preserveScroll is set (a live update) we keep the reader where they were.
+  function applySource(data, preserveScroll) {
+    var scroller = document.scrollingElement || document.documentElement;
+    var y = preserveScroll ? scroller.scrollTop : 0;
+    state.meta = data;
+    elFilename.textContent = data.name;
+    render();
+    refreshView();
+    if (preserveScroll) scroller.scrollTop = y;
   }
 
   // ===================================================================
@@ -96,11 +165,11 @@ var ReviewDoc = (function () {
   // ===================================================================
   function render() {
     elContent.innerHTML = "";
-    blockRaws = [];
-    if (meta.kind === "html") {
-      elContent.innerHTML = extractHtmlBody(meta.content);
+    state.blockRaws = [];
+    if (state.meta.kind === "html") {
+      elContent.innerHTML = extractHtmlBody(state.meta.content);
     } else {
-      renderMarkdown(meta.content);
+      renderMarkdown(state.meta.content);
     }
   }
 
@@ -109,18 +178,22 @@ var ReviewDoc = (function () {
     return m ? m[1] : html;
   }
 
+  // Render markdown block-by-block. We intentionally parse each top-level token
+  // on its own: it is what lets us map every rendered block back to its exact
+  // raw markdown (`block_raw`) and a stable `data-srcblock` index. That mapping
+  // is the contract the anchoring rules (anchoring.md) rely on, so we keep it —
+  // but we reuse a single scratch element instead of allocating one per block.
   function renderMarkdown(md) {
     var tokens = marked.lexer(md);
     var links = tokens.links || {};
+    var scratch = document.createElement("div");
     var idx = 0;
     tokens.forEach(function (tok) {
       if (tok.type === "space" || tok.type === "def") return;
       var toks = [tok];
       toks.links = links;
-      var html = marked.parser(toks);
-      var tmp = document.createElement("div");
-      tmp.innerHTML = html;
-      var children = Array.prototype.slice.call(tmp.children);
+      scratch.innerHTML = marked.parser(toks);
+      var children = Array.prototype.slice.call(scratch.children);
       if (children.length === 0) return;
       children.forEach(function (el) {
         var blockEl = el;
@@ -128,17 +201,13 @@ var ReviewDoc = (function () {
           // Wrap tables so the commentable block (= marker host) stays a
           // non-scrolling element, while the inner div provides horizontal
           // scroll. Putting overflow on the marker host would clip the marker.
-          var scroller = document.createElement("div");
-          scroller.className = "rd-table-scroll";
-          scroller.appendChild(el);
-          blockEl = document.createElement("div");
-          blockEl.className = "rd-table-block";
-          blockEl.appendChild(scroller);
+          var scroller = h("div", { "class": "rd-table-scroll" }, [el]);
+          blockEl = h("div", { "class": "rd-table-block" }, [scroller]);
         }
         blockEl.dataset.srcblock = String(idx);
         elContent.appendChild(blockEl);
       });
-      blockRaws[idx] = tok.raw || "";
+      state.blockRaws[idx] = tok.raw || "";
       idx++;
     });
     // Catch tables nested inside other blocks (e.g. raw HTML blocks) that the
@@ -146,8 +215,7 @@ var ReviewDoc = (function () {
     // plain scroll wrapper is enough.
     Array.prototype.forEach.call(elContent.querySelectorAll("table"), function (t) {
       if (t.closest(".rd-table-scroll")) return;
-      var scroller = document.createElement("div");
-      scroller.className = "rd-table-scroll";
+      var scroller = h("div", { "class": "rd-table-scroll" });
       t.parentNode.insertBefore(scroller, t);
       scroller.appendChild(t);
     });
@@ -156,23 +224,22 @@ var ReviewDoc = (function () {
   // ===================================================================
   // hover highlight
   // ===================================================================
-  var hovered = null;
   function onHover(e) {
     var target = blockOf(e.target);
-    if (target === hovered) return;
+    if (target === state.hovered) return;
     clearHover();
     if (target && target !== elContent) {
       target.classList.add("rd-hover");
-      hovered = target;
+      state.hovered = target;
     }
   }
   function clearHover() {
-    if (hovered) { hovered.classList.remove("rd-hover"); hovered = null; }
+    if (state.hovered) { state.hovered.classList.remove("rd-hover"); state.hovered = null; }
   }
 
   function blockOf(node) {
     if (!node || node === elContent) return null;
-    if (meta && meta.kind === "html") {
+    if (state.meta && state.meta.kind === "html") {
       var el = node.nodeType === 3 ? node.parentElement : node;
       if (!elContent.contains(el)) return null;
       return el === elContent ? null : el;
@@ -188,6 +255,8 @@ var ReviewDoc = (function () {
   // selecting / clicking → build anchor → open popover
   // ===================================================================
   function onMouseUp(e) {
+    // Clicking a marker badge is "jump to comment", not "comment on this block".
+    if (e.target.closest && e.target.closest(".rd-marker")) return;
     setTimeout(function () {
       var sel = window.getSelection();
       var text = sel && !sel.isCollapsed ? sel.toString() : "";
@@ -210,7 +279,7 @@ var ReviewDoc = (function () {
     var blk = blockOf(range.startContainer);
     var selectedText = sel.toString();
     var anchor;
-    if (meta.kind === "html") {
+    if (state.meta.kind === "html") {
       var host = blk || elContent;
       anchor = {
         type: "range", kind: "html", selected_text: selectedText,
@@ -222,18 +291,18 @@ var ReviewDoc = (function () {
       var bi = blk ? parseInt(blk.dataset.srcblock, 10) : -1;
       anchor = {
         type: "range", kind: "markdown", selected_text: selectedText,
-        block_index: bi, block_raw: bi >= 0 ? blockRaws[bi] : "",
+        block_index: bi, block_raw: bi >= 0 ? state.blockRaws[bi] : "",
         prefix: "", suffix: "", occurrence: 0
       };
       if (blk) fillContext(anchor, blk, range, selectedText);
     }
-    draftAnchor = anchor; draftBlock = blk;
+    state.draftAnchor = anchor; state.draftBlock = blk;
     showPopover(describeAnchor(anchor), rectOf(range));
   }
 
   function openBlockComment(blk) {
     var anchor;
-    if (meta.kind === "html") {
+    if (state.meta.kind === "html") {
       anchor = {
         type: "element", kind: "html", tag: blk.tagName.toLowerCase(),
         css_path: cssPath(blk), text: excerpt(blk.textContent.trim(), 200),
@@ -243,13 +312,13 @@ var ReviewDoc = (function () {
       var bi = parseInt(blk.dataset.srcblock, 10);
       anchor = {
         type: "block", kind: "markdown", block_index: bi,
-        block_raw: blockRaws[bi] || "", tag: blk.tagName.toLowerCase(),
+        block_raw: state.blockRaws[bi] || "", tag: blk.tagName.toLowerCase(),
         text: excerpt(blk.textContent.trim(), 200)
       };
-      var h = /^h([1-6])$/.exec(blk.tagName.toLowerCase());
-      if (h) { anchor.heading_level = parseInt(h[1], 10); anchor.heading_text = blk.textContent.trim(); }
+      var hd = /^h([1-6])$/.exec(blk.tagName.toLowerCase());
+      if (hd) { anchor.heading_level = parseInt(hd[1], 10); anchor.heading_text = blk.textContent.trim(); }
     }
-    draftAnchor = anchor; draftBlock = blk;
+    state.draftAnchor = anchor; state.draftBlock = blk;
     showPopover(describeAnchor(anchor), blk.getBoundingClientRect());
   }
 
@@ -287,28 +356,44 @@ var ReviewDoc = (function () {
   function showPopover(targetHtml, rect) {
     popTarget.innerHTML = targetHtml;
     popText.value = "";
-    pop.hidden = false;
-    var top = window.scrollY + (rect ? rect.bottom : 100) + 6;
-    var left = window.scrollX + (rect ? rect.left : 100);
-    var maxLeft = window.scrollX + document.documentElement.clientWidth - 340 - 16;
+    pop.hidden = false;                       // becomes measurable (CSS keeps it in flow but transparent)
+    var pw = pop.offsetWidth || 300;
+    var ph = pop.offsetHeight || 160;
+    var vw = document.documentElement.clientWidth;
+    var vh = document.documentElement.clientHeight;
+    var r = rect || { bottom: 100, top: 100, left: 100 };
+
+    // horizontal: clamp within viewport
+    var left = window.scrollX + Math.min(r.left, vw - pw - 16);
+    left = Math.max(window.scrollX + 8, left);
+
+    // vertical: prefer below; flip above when there isn't room; clamp either way
+    var top;
+    var spaceBelow = vh - r.bottom;
+    if (spaceBelow < ph + 12 && r.top > ph + 12) {
+      top = window.scrollY + r.top - ph - 8;            // flip above
+    } else {
+      top = window.scrollY + r.bottom + 6;
+      var maxTop = window.scrollY + vh - ph - 8;
+      if (top > maxTop) top = Math.max(window.scrollY + 8, maxTop);
+    }
     pop.style.top = top + "px";
-    pop.style.left = Math.min(left, maxLeft) + "px";
+    pop.style.left = left + "px";
     popText.focus();
   }
   function closePopover() {
     pop.hidden = true;
-    draftAnchor = null; draftBlock = null;
+    state.draftAnchor = null; state.draftBlock = null;
     var sel = window.getSelection();
     if (sel) sel.removeAllRanges();
   }
   function onPopoverAdd() {
     var text = popText.value.trim();
-    if (!text || !draftAnchor) { closePopover(); return; }
-    seq += 1;
-    pending.push({ pid: "p" + seq, type: "new", anchor: draftAnchor, text: text, block: draftBlock });
+    if (!text || !state.draftAnchor) { closePopover(); return; }
+    state.seq += 1;
+    state.pending.push({ pid: "p" + state.seq, type: "new", anchor: state.draftAnchor, text: text, block: state.draftBlock });
     closePopover();
-    reattachAll();
-    renderSidebar();
+    refreshView();
   }
 
   // ===================================================================
@@ -317,67 +402,91 @@ var ReviewDoc = (function () {
   function addReply(threadId, textarea) {
     var text = (textarea.value || "").trim();
     if (!text) return;
-    seq += 1;
-    pending.push({ pid: "p" + seq, type: "reply", thread_id: threadId, text: text });
+    state.seq += 1;
+    state.pending.push({ pid: "p" + state.seq, type: "reply", thread_id: threadId, text: text });
     textarea.value = "";
-    renderSidebar();
+    refreshView();
+  }
+
+  // ===================================================================
+  // ordering + numbering (document order, computed once per view refresh)
+  // ===================================================================
+  function newDrafts() { return state.pending.filter(function (p) { return p.type === "new"; }); }
+  function repliesFor(tid) { return state.pending.filter(function (p) { return p.type === "reply" && p.thread_id === tid; }); }
+  function isResolved(t) { return t.status === "resolved"; }
+
+  // Vertical position of a block within the document (for ordering). Unresolved
+  // anchors sort to the end.
+  function blockTop(blk) {
+    if (blk && elContent.contains(blk)) {
+      var scroller = document.scrollingElement || document.documentElement;
+      return blk.getBoundingClientRect().top + scroller.scrollTop;
+    }
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  // Build the ordered list of active items (new drafts + non-resolved threads),
+  // sorted by their position in the document, and assign 1..N accordingly so the
+  // body markers and the sidebar share one consistent numbering.
+  function computeOrder() {
+    var entries = [];
+    newDrafts().forEach(function (d) {
+      var blk = anchorToBlock(d.anchor) || d.block;
+      entries.push({ key: "draft:" + d.pid, kind: "draft", ref: d, top: blockTop(blk) });
+    });
+    state.threads.forEach(function (t) {
+      if (isResolved(t)) return;
+      var blk = anchorToBlock(t.anchor);
+      entries.push({ key: "thread:" + t.id, kind: "thread", ref: t, top: blockTop(blk) });
+    });
+    entries.sort(function (a, b) { return a.top - b.top; });
+    var nums = {};
+    entries.forEach(function (e, i) { nums[e.key] = i + 1; });
+    return { nums: nums, order: entries };
+  }
+
+  // Single entry point for "the model changed, redraw the view": compute order
+  // once, then place markers and render the sidebar from the same data.
+  function refreshView() {
+    var o = computeOrder();
+    reattachAll(o);
+    renderSidebar(o);
   }
 
   // ===================================================================
   // sidebar
   // ===================================================================
-  function newDrafts() { return pending.filter(function (p) { return p.type === "new"; }); }
-  function repliesFor(tid) { return pending.filter(function (p) { return p.type === "reply" && p.thread_id === tid; }); }
-
-  // Assign display numbers to anchored items (new drafts + non-resolved threads),
-  // in document order is hard; use creation order: drafts first, then threads.
-  function numbering() {
-    var map = {};
-    var n = 0;
-    newDrafts().forEach(function (d) { n += 1; map["draft:" + d.pid] = n; });
-    threads.forEach(function (t) {
-      if (t.status === "resolved") return;
-      n += 1; map["thread:" + t.id] = n;
-    });
-    return map;
-  }
-
-  function renderSidebar() {
-    var nums = numbering();
-    var open = threads.filter(function (t) { return t.status !== "resolved"; });
-    var resolved = threads.filter(function (t) { return t.status === "resolved"; });
-    var activeCount = newDrafts().length + open.length;
+  function renderSidebar(o) {
+    o = o || computeOrder();
+    var nums = o.nums;
+    var resolved = state.threads.filter(isResolved);
+    var activeCount = o.order.length;
     elCount.textContent = String(activeCount);
 
     elList.innerHTML = "";
 
     if (activeCount === 0 && resolved.length === 0) {
-      var p = document.createElement("p");
-      p.className = "rd-empty";
-      p.textContent = "コメントはまだありません。本文を選択／クリックして Cmd+Enter で追加。";
-      elList.appendChild(p);
+      elList.appendChild(h("p", {
+        "class": "rd-empty",
+        text: "コメントはまだありません。本文を選択／クリックして Cmd+Enter で追加。"
+      }));
     }
 
-    // new drafts
-    newDrafts().forEach(function (d) {
-      elList.appendChild(draftCard(d, nums["draft:" + d.pid]));
+    // active items (drafts + open/answered threads) in document order
+    o.order.forEach(function (e) {
+      if (e.kind === "draft") elList.appendChild(draftCard(e.ref, nums[e.key]));
+      else elList.appendChild(threadCard(e.ref, nums[e.key]));
     });
-    // open + answered threads
-    open.forEach(function (t) {
-      elList.appendChild(threadCard(t, nums["thread:" + t.id]));
-    });
+
     // resolved (collapsed)
     if (resolved.length) {
-      var details = document.createElement("details");
-      details.className = "rd-resolved-group";
-      var sum = document.createElement("summary");
-      sum.textContent = "解決済み (" + resolved.length + ")";
-      details.appendChild(sum);
+      var details = h("details", { "class": "rd-resolved-group" },
+        [h("summary", { text: "解決済み (" + resolved.length + ")" })]);
       resolved.forEach(function (t) { details.appendChild(threadCard(t, null)); });
       elList.appendChild(details);
     }
 
-    var nPending = pending.length;
+    var nPending = state.pending.length;
     elSend.disabled = nPending === 0;
     elSend.textContent = nPending > 0 ? "Claude に送信 (" + nPending + ")" : "Claude に送信";
     elSendNote.textContent = nPending > 0
@@ -386,110 +495,94 @@ var ReviewDoc = (function () {
   }
 
   function header(num, kindLabel, badgeCls) {
-    var head = document.createElement("div");
-    head.className = "rd-item-head";
-    var left = document.createElement("span");
-    var numHtml = num != null ? '<span class="rd-item-num ' + (badgeCls || "") + '">' + num + '</span> ' : "";
-    left.innerHTML = numHtml + '<span class="rd-item-kind">' + kindLabel + '</span>';
-    head.appendChild(left);
-    return head;
+    var kids = [];
+    if (num != null) {
+      kids.push(h("span", { "class": "rd-item-num " + (badgeCls || ""), text: String(num) }));
+      kids.push(" ");
+    }
+    kids.push(h("span", { "class": "rd-item-kind", text: kindLabel }));
+    return h("div", { "class": "rd-item-head" }, [h("span", null, kids)]);
+  }
+
+  // Clicking a card (but not a control inside it) jumps to the anchored block.
+  function cardJump(key) {
+    return function (e) {
+      if (e.target.closest("button, textarea, a")) return;
+      focusBlock(key);
+    };
   }
 
   function draftCard(d, num) {
-    var item = document.createElement("div");
-    item.className = "rd-item draft";
     var head = header(num, "下書き · " + anchorKindLabel(d.anchor), "draft");
-    var del = document.createElement("button");
-    del.className = "rd-item-del"; del.textContent = "削除";
-    del.addEventListener("click", function () { removePending(d.pid); });
-    head.appendChild(del);
-    item.appendChild(head);
-
-    var tgt = document.createElement("div");
-    tgt.className = "rd-item-target";
-    tgt.textContent = anchorSnippet(d.anchor);
-    item.appendChild(tgt);
-
-    item.appendChild(bubble("user", d.text, true));
+    head.appendChild(h("button", {
+      "class": "rd-item-del", type: "button", text: "削除", "aria-label": "下書きを削除",
+      on: { click: function (e) { e.stopPropagation(); removePending(d.pid); } }
+    }));
+    var item = h("div", { "class": "rd-item draft", dataset: { key: "draft:" + d.pid } }, [
+      head,
+      h("div", { "class": "rd-item-target", text: anchorSnippet(d.anchor) }),
+      bubble("user", d.text, true)
+    ]);
+    item.addEventListener("click", cardJump("draft:" + d.pid));
     return item;
   }
 
   function threadCard(t, num) {
-    var item = document.createElement("div");
-    item.className = "rd-item thread status-" + t.status;
-    var label = t.status === "answered" ? "返信あり" : (t.status === "resolved" ? "解決済み" : "対応中");
+    var label = t.status === "answered" ? "返信あり" : (isResolved(t) ? "解決済み" : "対応中");
     var head = header(num, label + " · " + anchorKindLabel(t.anchor),
       t.status === "answered" ? "answered" : "");
-    if (t.status !== "resolved") {
-      var resolveBtn = document.createElement("button");
-      resolveBtn.className = "rd-item-resolve";
-      resolveBtn.textContent = "解決";
-      resolveBtn.addEventListener("click", function () { resolveThread(t.id); });
-      head.appendChild(resolveBtn);
+    if (!isResolved(t)) {
+      head.appendChild(h("button", {
+        "class": "rd-item-resolve", type: "button", text: "解決", "aria-label": "このコメントを解決",
+        on: { click: function (e) { e.stopPropagation(); resolveThread(t.id); } }
+      }));
     } else {
-      var reopenBtn = document.createElement("button");
-      reopenBtn.className = "rd-item-resolve";
-      reopenBtn.textContent = "再開";
-      reopenBtn.addEventListener("click", function () { reopenThread(t.id); });
-      head.appendChild(reopenBtn);
+      head.appendChild(h("button", {
+        "class": "rd-item-resolve", type: "button", text: "再開", "aria-label": "このコメントを再開",
+        on: { click: function (e) { e.stopPropagation(); reopenThread(t.id); } }
+      }));
     }
-    item.appendChild(head);
 
-    var tgt = document.createElement("div");
-    tgt.className = "rd-item-target";
-    tgt.textContent = anchorSnippet(t.anchor);
-    item.appendChild(tgt);
+    var item = h("div", { "class": "rd-item thread status-" + t.status, dataset: { key: "thread:" + t.id } }, [
+      head,
+      h("div", { "class": "rd-item-target", text: anchorSnippet(t.anchor) })
+    ]);
 
-    (t.messages || []).forEach(function (m) {
-      item.appendChild(bubble(m.role, m.text, false));
-    });
+    (t.messages || []).forEach(function (m) { item.appendChild(bubble(m.role, m.text, false)); });
 
     // pending re-feedback drafts for this thread
     repliesFor(t.id).forEach(function (p) {
       var b = bubble("user", p.text, true);
-      var del = document.createElement("button");
-      del.className = "rd-bubble-del"; del.textContent = "×";
-      del.title = "下書きを削除";
-      del.addEventListener("click", function () { removePending(p.pid); });
-      b.appendChild(del);
+      b.appendChild(h("button", {
+        "class": "rd-bubble-del", type: "button", text: "×", title: "下書きを削除", "aria-label": "下書きを削除",
+        on: { click: function (e) { e.stopPropagation(); removePending(p.pid); } }
+      }));
       item.appendChild(b);
     });
 
     // reply box (not for resolved)
-    if (t.status !== "resolved") {
-      var box = document.createElement("div");
-      box.className = "rd-reply";
-      var ta = document.createElement("textarea");
-      ta.rows = 2;
-      ta.placeholder = t.status === "answered"
-        ? "意図と違えば再フィードバック… (Cmd+Enter)"
-        : "補足… (Cmd+Enter)";
-      ta.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" && e.metaKey && !e.shiftKey) { e.preventDefault(); addReply(t.id, ta); }
+    if (!isResolved(t)) {
+      var ta = h("textarea", {
+        rows: 2,
+        placeholder: t.status === "answered" ? "意図と違えば再フィードバック… (Cmd+Enter)" : "補足… (Cmd+Enter)",
+        on: { keydown: function (e) { if (e.key === "Enter" && e.metaKey && !e.shiftKey) { e.preventDefault(); addReply(t.id, ta); } } }
       });
-      var add = document.createElement("button");
-      add.className = "rd-btn rd-btn-ghost rd-reply-add";
-      add.textContent = "追加";
-      add.addEventListener("click", function () { addReply(t.id, ta); });
-      box.appendChild(ta);
-      box.appendChild(add);
-      item.appendChild(box);
+      var add = h("button", {
+        "class": "rd-btn rd-btn-ghost rd-reply-add", type: "button", text: "追加",
+        on: { click: function () { addReply(t.id, ta); } }
+      });
+      item.appendChild(h("div", { "class": "rd-reply" }, [ta, add]));
     }
+
+    item.addEventListener("click", cardJump("thread:" + t.id));
     return item;
   }
 
   function bubble(role, text, isDraft) {
-    var b = document.createElement("div");
-    b.className = "rd-bubble " + (role === "claude" ? "claude" : "user") + (isDraft ? " draft" : "");
-    var who = document.createElement("span");
-    who.className = "rd-bubble-who";
-    who.textContent = role === "claude" ? "Claude" : (isDraft ? "あなた（送信待ち）" : "あなた");
-    var body = document.createElement("div");
-    body.className = "rd-bubble-text";
-    body.textContent = text;
-    b.appendChild(who);
-    b.appendChild(body);
-    return b;
+    return h("div", { "class": "rd-bubble " + (role === "claude" ? "claude" : "user") + (isDraft ? " draft" : "") }, [
+      h("span", { "class": "rd-bubble-who", text: role === "claude" ? "Claude" : (isDraft ? "あなた（送信待ち）" : "あなた") }),
+      h("div", { "class": "rd-bubble-text", text: text })
+    ]);
   }
 
   function anchorKindLabel(a) {
@@ -505,23 +598,29 @@ var ReviewDoc = (function () {
   }
 
   function removePending(pid) {
-    pending = pending.filter(function (p) { return p.pid !== pid; });
-    reattachAll();
-    renderSidebar();
+    state.pending = state.pending.filter(function (p) { return p.pid !== pid; });
+    refreshView();
   }
 
   // ===================================================================
-  // markers on the document
+  // markers on the document + jump-to linking (comment <-> body)
   // ===================================================================
   function markBlock(block, key, num, cls) {
     if (!block || block === elContent) return;
     block.classList.add("rd-commented");
     if (cls) block.classList.add(cls);
-    if (getComputedStyle(block).position === "static") block.style.position = "relative";
-    var marker = document.createElement("span");
-    marker.className = "rd-marker" + (cls ? " " + cls : "");
-    marker.dataset.key = key;
-    marker.textContent = num != null ? String(num) : "•";
+    // Relative positioning is handled by `.rd-commented { position: relative }`
+    // in CSS — no getComputedStyle read here, so marker placement doesn't force
+    // a synchronous layout on every refresh.
+    var marker = h("button", {
+      "class": "rd-marker" + (cls ? " " + cls : ""),
+      type: "button",
+      title: "コメント " + (num != null ? num : ""),
+      "aria-label": "コメント " + (num != null ? num : "") + " を表示",
+      dataset: { key: key },
+      text: num != null ? String(num) : "•",
+      on: { click: function (e) { e.stopPropagation(); focusThreadCard(key); } }
+    });
     block.appendChild(marker);
   }
   function clearMarkers() {
@@ -542,30 +641,67 @@ var ReviewDoc = (function () {
     return null;
   }
 
-  // Re-place all markers (new drafts + non-resolved threads) after a render.
-  function reattachAll() {
+  // Re-place all markers (new drafts + non-resolved threads) after a render,
+  // using the precomputed document-order numbering.
+  function reattachAll(o) {
+    o = o || computeOrder();
     clearMarkers();
-    var nums = numbering();
-    newDrafts().forEach(function (d) {
-      var blk = anchorToBlock(d.anchor) || d.block;
-      if (blk && elContent.contains(blk)) markBlock(blk, "draft:" + d.pid, nums["draft:" + d.pid], "draft");
+    o.order.forEach(function (e) {
+      var blk = e.kind === "draft" ? (anchorToBlock(e.ref.anchor) || e.ref.block) : anchorToBlock(e.ref.anchor);
+      if (!blk || !elContent.contains(blk)) return;
+      var cls = e.kind === "draft" ? "draft" : (e.ref.status === "answered" ? "answered" : null);
+      markBlock(blk, e.key, o.nums[e.key], cls);
     });
-    threads.forEach(function (t) {
-      if (t.status === "resolved") return;
-      var blk = anchorToBlock(t.anchor);
-      var cls = t.status === "answered" ? "answered" : null;
-      if (blk) markBlock(blk, "thread:" + t.id, nums["thread:" + t.id], cls);
-    });
+  }
+
+  // sidebar card -> body block
+  function focusBlock(key) {
+    var marker = elContent.querySelector('.rd-marker[data-key="' + key + '"]');
+    if (!marker) return;
+    var blk = marker.parentElement;
+    if (blk) { blk.scrollIntoView({ behavior: "smooth", block: "center" }); flash(blk); }
+  }
+  // body marker -> sidebar card
+  function focusThreadCard(key) {
+    var card = elList.querySelector('.rd-item[data-key="' + key + '"]');
+    if (!card) {
+      var grp = elList.querySelector(".rd-resolved-group");
+      if (grp) { grp.open = true; card = elList.querySelector('.rd-item[data-key="' + key + '"]'); }
+    }
+    if (!card) return;
+    openSidebarIfCollapsed();
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    flash(card);
+  }
+  function flash(node) {
+    if (!node) return;
+    node.classList.remove("rd-flash");
+    void node.offsetWidth;            // restart the animation
+    node.classList.add("rd-flash");
+    setTimeout(function () { node.classList.remove("rd-flash"); }, 850);
+  }
+
+  // ===================================================================
+  // sidebar drawer (narrow screens)
+  // ===================================================================
+  function toggleSidebar() {
+    var open = elSidebar.classList.toggle("open");
+    if (elSidebarToggle) elSidebarToggle.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  function openSidebarIfCollapsed() {
+    if (window.matchMedia("(max-width: 880px)").matches && !elSidebar.classList.contains("open")) {
+      toggleSidebar();
+    }
   }
 
   // ===================================================================
   // send (submit batch)
   // ===================================================================
   function sendAll() {
-    if (pending.length === 0) return;
+    if (state.pending.length === 0) return;
     elSend.disabled = true;
     elSendNote.textContent = "送信中…";
-    var items = pending.map(function (p) {
+    var items = state.pending.map(function (p) {
       return p.type === "reply"
         ? { thread_id: p.thread_id, text: p.text }
         : { anchor: p.anchor, text: p.text };
@@ -577,11 +713,10 @@ var ReviewDoc = (function () {
       .then(function (r) { return r.json(); })
       .then(function (res) {
         if (res && res.ok) {
-          pending = [];
-          threads = res.threads || threads;
-          lastRev = res.rev;
-          reattachAll();
-          renderSidebar();
+          state.pending = [];
+          state.threads = res.threads || state.threads;
+          state.lastRev = res.rev;
+          refreshView();
           setStatus("送信しました（Claude の対応待ち）");
           toast("Claude に送信しました（バッチ " + res.batch_id + "）");
         } else {
@@ -608,44 +743,68 @@ var ReviewDoc = (function () {
     })
       .then(function (r) { return r.json(); })
       .then(function (res) {
-        if (res && res.ok) { lastRev = res.rev; refreshThreads(false); }
+        if (res && res.ok) { state.lastRev = res.rev; refreshThreads(); }
       })
-      .catch(function () {});
+      .catch(noop);
   }
 
   // ===================================================================
   // polling / live reload
   // ===================================================================
-  function refreshThreads(silent) {
+  function refreshThreads() {
     return fetch("/threads", { cache: "no-store" })
       .then(function (r) { return r.json(); })
       .then(function (d) {
-        threads = d.threads || [];
-        lastRev = d.rev;
-        reattachAll();
-        renderSidebar();
+        state.threads = d.threads || [];
+        state.lastRev = d.rev;
+        refreshView();
       })
-      .catch(function () {});
+      .catch(noop);
   }
 
   function startPolling() {
-    if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(checkRev, 3500);
+    stopPolling();
+    if (document.hidden) return;
+    state.pollTimer = setInterval(checkRev, 3500);
   }
+  function stopPolling() {
+    if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
+  }
+
+  // Cheap poll: ask only for the revision number. Pull the heavy payloads
+  // (threads + source) only when something actually changed.
   function checkRev() {
-    fetch("/threads", { cache: "no-store" })
+    fetch("/rev", { cache: "no-store" })
       .then(function (r) { return r.json(); })
       .then(function (d) {
-        if (typeof d.rev === "number" && d.rev > lastRev) {
-          lastRev = d.rev;
-          threads = d.threads || [];
-          // Claude may have edited the file: re-fetch source + re-render + re-attach.
-          setStatus("更新を検知 — 再読み込み");
-          toast("Claude がドキュメントを更新しました");
-          loadSource(false);
-        }
+        if (typeof d.rev === "number" && d.rev > state.lastRev) onRevBumped(d.rev);
       })
-      .catch(function () {});
+      .catch(noop);
+  }
+
+  function onRevBumped(rev) {
+    state.lastRev = rev;
+    Promise.all([
+      fetch("/threads", { cache: "no-store" }).then(function (r) { return r.json(); }),
+      fetch("/source", { cache: "no-store" }).then(function (r) { return r.json(); })
+    ]).then(function (res) {
+      var td = res[0], sd = res[1];
+      state.threads = td.threads || [];
+      // Did the file itself change, or only the thread data (e.g. a reply)?
+      var sourceChanged = !state.meta || sd.mtime !== state.meta.mtime || sd.content !== state.meta.content;
+      if (sourceChanged) {
+        setStatus("更新を反映しました");
+        toast("Claude がドキュメントを更新しました");
+        announce("Claude がドキュメントを更新しました");
+        applySource(sd, true);     // re-render body, keep scroll position
+      } else {
+        // Reply / status change only: no body re-parse, just refresh markers + sidebar.
+        setStatus("返信が届きました");
+        toast("Claude が返信しました");
+        announce("Claude が返信しました");
+        refreshView();
+      }
+    }).catch(noop);
   }
 
   // ===================================================================
@@ -678,12 +837,11 @@ var ReviewDoc = (function () {
     var rects = range.getClientRects();
     return rects.length ? rects[rects.length - 1] : range.getBoundingClientRect();
   }
-  var toastTimer = null;
   function toast(msg) {
     elToast.textContent = msg;
-    elToast.hidden = false;
-    if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { elToast.hidden = true; }, 3500);
+    elToast.classList.add("show");
+    if (state.toastTimer) clearTimeout(state.toastTimer);
+    state.toastTimer = setTimeout(function () { elToast.classList.remove("show"); }, 3500);
   }
 
   return { start: start };

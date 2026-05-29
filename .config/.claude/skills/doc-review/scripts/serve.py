@@ -185,6 +185,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._serve_source()
         if path == "/threads":
             return self._serve_threads()
+        if path == "/rev":
+            return self._serve_rev()
         if path == "/favicon.ico":
             return self._send_bytes(b"", "image/x-icon", status=204)
         return self._send_error_json(404, "not found")
@@ -238,6 +240,13 @@ class Handler(BaseHTTPRequestHandler):
     def _serve_threads(self) -> None:
         with _lock:
             self._send_json({"rev": STORE["rev"], "threads": STORE["threads"]})
+
+    def _serve_rev(self) -> None:
+        # Lightweight poll target: returns only the revision counter so the
+        # browser can cheaply detect changes without transferring every thread
+        # (and its full message history) every few seconds.
+        with _lock:
+            self._send_json({"rev": STORE["rev"]})
 
     # -- POST handlers -----------------------------------------------------
 
