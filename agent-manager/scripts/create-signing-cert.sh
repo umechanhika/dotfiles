@@ -19,30 +19,53 @@ set -euo pipefail
 SIGN_ID="AgentManager Code Signing"
 KEYCHAIN="${HOME}/Library/Keychains/login.keychain-db"
 
-# 同名証明書が「ちょうど1件」かつ「有効な codesigning ID」のときだけ何もしない。
-# 有効IDの有無だけで早期 return すると、重複証明書が残っていても掃除されず
-# （build-app.sh が名前指定署名なら ambiguous を誘発する温床になる）、再ビルド時の
-# 署名すげ替え→TCC権限無効化を招く。そのため件数も確認し、重複があれば作り直す。
-# 0件のとき grep -c は exit 1 を返すため、set -e で落ちないよう || true でガードする。
-CERT_COUNT="$(/usr/bin/security find-certificate -a -c "$SIGN_ID" "$KEYCHAIN" 2>/dev/null \
-  | grep -c '"labl"' || true)"
-if [ "$CERT_COUNT" = "1" ] \
-  && /usr/bin/security find-identity -v -p codesigning 2>/dev/null | grep -q "$SIGN_ID"; then
+# 同名証明書を SHA-1 ハッシュ指定で削除する。名前(-c)指定は同名が複数あると
+# ambiguous で失敗し1件も消えないため（重複が増え続ける原因だった）、必ずハッシュで消す。
+# 鍵も一緒に消すため delete-identity を優先し、非対応/失敗時は delete-certificate に退避。
+delete_cert_by_hash() {
+  /usr/bin/security delete-identity -Z "$1" "$KEYCHAIN" >/dev/null 2>&1 \
+    || /usr/bin/security delete-certificate -Z "$1" "$KEYCHAIN" >/dev/null 2>&1 \
+    || true
+}
+
+# 同名証明書の全 SHA-1 ハッシュ。0件でも set -e で落ちないよう取り回す。
+ALL_HASHES="$(/usr/bin/security find-certificate -a -c "$SIGN_ID" -Z "$KEYCHAIN" 2>/dev/null \
+  | awk '/SHA-1 hash:/ {print $3}')"
+CERT_COUNT="$(printf '%s\n' "$ALL_HASHES" | grep -c . || true)"
+# build-app.sh と同じ選び方（先頭の有効 codesigning ID）で「温存する有効ID」を1件決める。
+KEEP_HASH="$(/usr/bin/security find-identity -v -p codesigning 2>/dev/null \
+  | awk -v id="$SIGN_ID" 'index($0, id) {print $2; exit}')"
+
+# 既に「1件だけ・有効」なら何もしない（冪等）。
+if [ "$CERT_COUNT" = "1" ] && [ -n "$KEEP_HASH" ]; then
   echo "ok: 署名ID '$SIGN_ID' は既に有効です（証明書1件）。"
   exit 0
 fi
-if [ "$CERT_COUNT" -gt 1 ] 2>/dev/null; then
-  echo "info: 同名証明書が ${CERT_COUNT} 件あります（重複は ambiguous の原因）。掃除して作り直します。"
+
+# 有効IDが既にあるなら、それを温存して余分な同名証明書だけ削除する。
+# 新規作成すると署名IDが変わり TCC（アクセシビリティ/Automation）権限の再付与が必要に
+# なるため、既存の有効IDを使い回して単一化する（=付与済み権限を維持できる）。
+if [ -n "$KEEP_HASH" ]; then
+  echo "info: 有効な署名ID($KEEP_HASH)を温存し、余分な同名証明書を削除します。"
+  for h in $ALL_HASHES; do
+    [ "$h" = "$KEEP_HASH" ] && continue
+    delete_cert_by_hash "$h"
+  done
+  if /usr/bin/security find-identity -v -p codesigning 2>/dev/null | grep -q "$SIGN_ID"; then
+    echo "done: 署名ID '$SIGN_ID' を1件に単一化しました（権限の再付与は不要）。"
+    exit 0
+  fi
+  echo "ERROR: 単一化後に有効な署名IDが見つかりません。" >&2
+  exit 1
 fi
 
-# 過去の失敗で残った同名証明書（重複は codesign が ambiguous エラーになる）を
-# 全て削除してから作り直す。delete-identity が鍵+証明書を消す。
-echo "info: 既存の '$SIGN_ID' 証明書があれば掃除します（認証を求められることがあります）。"
-while /usr/bin/security find-certificate -c "$SIGN_ID" "$KEYCHAIN" >/dev/null 2>&1; do
-  /usr/bin/security delete-identity -c "$SIGN_ID" "$KEYCHAIN" >/dev/null 2>&1 \
-    || /usr/bin/security delete-certificate -c "$SIGN_ID" "$KEYCHAIN" >/dev/null 2>&1 \
-    || break
-done
+# 有効IDが1件も無い場合のみ、残っている同名証明書を全て掃除してから作り直す。
+if [ -n "$ALL_HASHES" ]; then
+  echo "info: 有効な署名IDが無いため、既存の同名証明書を全て掃除して作り直します。"
+  for h in $ALL_HASHES; do
+    delete_cert_by_hash "$h"
+  done
+fi
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
