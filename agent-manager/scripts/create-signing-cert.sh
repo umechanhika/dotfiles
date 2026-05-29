@@ -19,10 +19,20 @@ set -euo pipefail
 SIGN_ID="AgentManager Code Signing"
 KEYCHAIN="${HOME}/Library/Keychains/login.keychain-db"
 
-# 既に「有効な」codesigning ID があれば何もしない。
-if /usr/bin/security find-identity -v -p codesigning 2>/dev/null | grep -q "$SIGN_ID"; then
-  echo "ok: 署名ID '$SIGN_ID' は既に有効です。"
+# 同名証明書が「ちょうど1件」かつ「有効な codesigning ID」のときだけ何もしない。
+# 有効IDの有無だけで早期 return すると、重複証明書が残っていても掃除されず
+# （build-app.sh が名前指定署名なら ambiguous を誘発する温床になる）、再ビルド時の
+# 署名すげ替え→TCC権限無効化を招く。そのため件数も確認し、重複があれば作り直す。
+# 0件のとき grep -c は exit 1 を返すため、set -e で落ちないよう || true でガードする。
+CERT_COUNT="$(/usr/bin/security find-certificate -a -c "$SIGN_ID" "$KEYCHAIN" 2>/dev/null \
+  | grep -c '"labl"' || true)"
+if [ "$CERT_COUNT" = "1" ] \
+  && /usr/bin/security find-identity -v -p codesigning 2>/dev/null | grep -q "$SIGN_ID"; then
+  echo "ok: 署名ID '$SIGN_ID' は既に有効です（証明書1件）。"
   exit 0
+fi
+if [ "$CERT_COUNT" -gt 1 ] 2>/dev/null; then
+  echo "info: 同名証明書が ${CERT_COUNT} 件あります（重複は ambiguous の原因）。掃除して作り直します。"
 fi
 
 # 過去の失敗で残った同名証明書（重複は codesign が ambiguous エラーになる）を
