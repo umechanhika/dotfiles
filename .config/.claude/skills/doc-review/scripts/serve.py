@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""review-doc local server (v2: threaded comments).
+"""doc-review local server (v2: threaded comments).
 
 Serves a single markdown / HTML file for in-browser commenting (Figma-like).
 Comments are organised as *threads* (an anchor + a list of messages + a status).
@@ -84,7 +84,7 @@ def default_work_dir(target_abs: str) -> str:
     name = os.path.basename(target_abs)
     safe = "".join(c if (c.isalnum() or c in "-_.") else "_" for c in name)
     digest = hashlib.sha1(target_abs.encode("utf-8")).hexdigest()[:16]
-    base = os.path.expanduser("~/.claude/review-doc")
+    base = os.path.expanduser("~/.claude/doc-review")
     return os.path.join(base, "%s-%s" % (safe, digest))
 
 
@@ -132,10 +132,10 @@ def _find_thread(thread_id: str):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "review-doc/2.0"
+    server_version = "doc-review/2.0"
 
     def log_message(self, fmt: str, *args) -> None:  # noqa: A003
-        sys.stderr.write("[review-doc] %s\n" % (fmt % args))
+        sys.stderr.write("[doc-review] %s\n" % (fmt % args))
 
     # -- helpers -----------------------------------------------------------
 
@@ -381,11 +381,11 @@ def _watcher(server: ThreadingHTTPServer, parent_pid: Optional[int], idle_timeou
             try:
                 os.kill(parent_pid, 0)
             except OSError:
-                sys.stderr.write("[review-doc] parent process gone; shutting down\n")
+                sys.stderr.write("[doc-review] parent process gone; shutting down\n")
                 server.shutdown()
                 return
         if idle_timeout > 0 and (time.time() - _last_activity) > idle_timeout:
-            sys.stderr.write("[review-doc] idle timeout; shutting down\n")
+            sys.stderr.write("[doc-review] idle timeout; shutting down\n")
             server.shutdown()
             return
 
@@ -509,7 +509,7 @@ def reply_cmd(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="review-doc local server")
+    parser = argparse.ArgumentParser(description="doc-review local server")
     sub = parser.add_subparsers(dest="command")
 
     rp = sub.add_parser("reply", help="post a Claude reply to a thread (HTTP to the running server)")
@@ -524,7 +524,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--target", help="absolute path of the md/html file to review")
     parser.add_argument("--skill-dir", help="absolute path of this skill directory")
     parser.add_argument("--work-dir", dest="work_dir",
-                        help="working dir (default: ~/.claude/review-doc/<target-hash>)")
+                        help="working dir (default: ~/.claude/doc-review/<target-hash>)")
     parser.add_argument("--port", type=int, default=5050)
     parser.add_argument("--parent-pid", type=int, default=0)
     parser.add_argument("--idle-timeout", type=float, default=1800.0)

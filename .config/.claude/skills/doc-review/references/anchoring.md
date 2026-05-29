@@ -11,7 +11,7 @@
   "batch_id": "20260529-112233-001",
   "ts": "2026-05-29T11:22:33",
   "target": "/abs/path/to/file.md",
-  "work_dir": "/Users/.../.claude/review-doc/file.md-<hash>",
+  "work_dir": "/Users/.../.claude/doc-review/file.md-<hash>",
   "items": [
     { "thread_id": "t1", "anchor": { ... }, "text": "ここの表現を柔らかく", "is_new": true },
     { "thread_id": "t2", "anchor": { ... }, "text": "この見出しは不要",     "is_new": true }

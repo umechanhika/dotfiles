@@ -1,4 +1,4 @@
-/* review-doc — in-browser threaded commenting for a single markdown/HTML file.
+/* doc-review — in-browser threaded commenting for a single markdown/HTML file.
  *
  * Fully local: talks only to its own origin (the serve.py instance).
  * - Renders the source (markdown via bundled marked.js, or HTML as-is)
