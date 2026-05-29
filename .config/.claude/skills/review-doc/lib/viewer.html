@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>review-doc</title>
+  <!-- All assets are local. No CDN / external requests. -->
+  <link rel="stylesheet" href="/lib/comment.css">
+  <script src="/lib/marked.min.js"></script>
+</head>
+<body>
+  <header id="rd-topbar">
+    <div class="rd-topbar-left">
+      <span id="rd-filename">…</span>
+      <span id="rd-status" class="rd-status">読み込み中…</span>
+    </div>
+    <div class="rd-topbar-right">
+      <label class="rd-hint">選択／クリック → <kbd>⌘Enter</kbd>で追加 ・ <kbd>⌘⇧Enter</kbd>で一括送信</label>
+    </div>
+  </header>
+
+  <main id="rd-main">
+    <article id="rd-content" aria-label="プレビュー"></article>
+  </main>
+
+  <aside id="rd-sidebar">
+    <div class="rd-sidebar-head">
+      <h2>コメント <span id="rd-count" class="rd-badge">0</span></h2>
+    </div>
+    <div id="rd-list" class="rd-list"></div>
+    <div class="rd-sidebar-foot">
+      <button id="rd-send" class="rd-btn rd-btn-primary" disabled>Claude に送信</button>
+      <p id="rd-send-note" class="rd-send-note"></p>
+    </div>
+  </aside>
+
+  <!-- Comment input popover -->
+  <div id="rd-popover" class="rd-popover" hidden>
+    <div class="rd-popover-target" id="rd-popover-target"></div>
+    <textarea id="rd-popover-text" rows="3" placeholder="コメントを入力…"></textarea>
+    <div class="rd-popover-actions">
+      <button id="rd-popover-cancel" class="rd-btn rd-btn-ghost">キャンセル</button>
+      <button id="rd-popover-add" class="rd-btn rd-btn-primary">追加</button>
+    </div>
+  </div>
+
+  <div id="rd-toast" class="rd-toast" hidden></div>
+
+  <script src="/lib/comment.js"></script>
+  <script>
+    window.addEventListener("DOMContentLoaded", function () {
+      ReviewDoc.start();
+    });
+  </script>
+</body>
+</html>
