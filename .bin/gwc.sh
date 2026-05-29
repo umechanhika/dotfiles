@@ -40,15 +40,31 @@ if [ -d "$wt_path" ]; then
   cd "$wt_path" || return 1
   git pull
 else
-  if ! git -C "$main_repo" worktree add "$wt_path" "$branch" 2>/dev/null; then
-    git -C "$main_repo" worktree add -b "$branch" "$wt_path" "origin/$branch" || {
-      echo "Error: Branch '$branch' not found locally or in origin" >&2
+  new_local_branch=0
+  if git -C "$main_repo" worktree add "$wt_path" "$branch" 2>/dev/null; then
+    : # ローカル既存、または origin/<branch> から DWIM で追跡ブランチ作成
+  elif git -C "$main_repo" worktree add -b "$branch" "$wt_path" "origin/$branch" 2>/dev/null; then
+    git -C "$wt_path" branch --set-upstream-to="origin/$branch" "$branch"
+  else
+    # ローカルにも origin にも無い → origin のデフォルトブランチを起点に新規作成（push しない）
+    default_branch=$(git -C "$main_repo" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)
+    if [ -z "$default_branch" ]; then
+      git -C "$main_repo" remote set-head origin -a >/dev/null 2>&1
+      default_branch=$(git -C "$main_repo" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)
+    fi
+    if [ -z "$default_branch" ]; then
+      echo "Error: Could not determine origin default branch" >&2
+      return 1
+    fi
+    echo "Branch '$branch' not found locally or in origin. Creating new local branch from $default_branch (not pushed)..."
+    git -C "$main_repo" worktree add -b "$branch" "$wt_path" "$default_branch" || {
+      echo "Error: Failed to create local branch '$branch'" >&2
       return 1
     }
-    git -C "$wt_path" branch --set-upstream-to="origin/$branch" "$branch"
+    new_local_branch=1
   fi
   cd "$wt_path" || return 1
-  git pull
+  [ "$new_local_branch" -eq 0 ] && git pull
 fi
 
 studio .
