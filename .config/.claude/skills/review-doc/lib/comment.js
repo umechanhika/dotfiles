@@ -123,11 +123,33 @@ var ReviewDoc = (function () {
       var children = Array.prototype.slice.call(tmp.children);
       if (children.length === 0) return;
       children.forEach(function (el) {
-        el.dataset.srcblock = String(idx);
-        elContent.appendChild(el);
+        var blockEl = el;
+        if (el.tagName === "TABLE") {
+          // Wrap tables so the commentable block (= marker host) stays a
+          // non-scrolling element, while the inner div provides horizontal
+          // scroll. Putting overflow on the marker host would clip the marker.
+          var scroller = document.createElement("div");
+          scroller.className = "rd-table-scroll";
+          scroller.appendChild(el);
+          blockEl = document.createElement("div");
+          blockEl.className = "rd-table-block";
+          blockEl.appendChild(scroller);
+        }
+        blockEl.dataset.srcblock = String(idx);
+        elContent.appendChild(blockEl);
       });
       blockRaws[idx] = tok.raw || "";
       idx++;
+    });
+    // Catch tables nested inside other blocks (e.g. raw HTML blocks) that the
+    // top-level wrap above missed. Marker host is the ancestor block here, so a
+    // plain scroll wrapper is enough.
+    Array.prototype.forEach.call(elContent.querySelectorAll("table"), function (t) {
+      if (t.closest(".rd-table-scroll")) return;
+      var scroller = document.createElement("div");
+      scroller.className = "rd-table-scroll";
+      t.parentNode.insertBefore(scroller, t);
+      scroller.appendChild(t);
     });
   }
 

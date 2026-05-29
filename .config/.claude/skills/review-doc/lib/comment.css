@@ -46,13 +46,14 @@ html, body {
   margin-top: var(--rd-topbar-h);
   margin-right: var(--rd-sidebar-w);
   min-height: calc(100vh - var(--rd-topbar-h));
-  padding: 32px 0;
+  padding: 32px 28px;
   display: flex;
   justify-content: center;
 }
 #rd-content {
   background: var(--rd-bg);
-  width: min(860px, 92%);
+  width: 100%;
+  max-width: 1200px;
   padding: 48px 56px;
   border-radius: 8px;
   box-shadow: 0 1px 4px rgba(0,0,0,.08);
@@ -67,6 +68,10 @@ html, body {
 }
 #rd-content code { background: #eef2f6; padding: 1px 5px; border-radius: 3px; }
 #rd-content pre code { background: none; padding: 0; }
+#rd-content .rd-table-scroll { overflow-x: auto; max-width: 100%; }
+/* keep column widths at their natural content size so narrowing the window
+   scrolls instead of squashing cells */
+#rd-content .rd-table-scroll table { width: max-content; max-width: none; }
 #rd-content table { border-collapse: collapse; }
 #rd-content th, #rd-content td { border: 1px solid #ddd; padding: 6px 10px; }
 #rd-content blockquote { border-left: 4px solid #ddd; margin: 0; padding-left: 16px; color: #555; }
