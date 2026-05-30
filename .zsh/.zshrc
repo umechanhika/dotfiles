@@ -6,6 +6,9 @@ alias gbd='git branch -D'
 alias gbvv='git branch -vv'
 alias gs='git status'
 alias gp='git pull'
+alias gwa='git worktree add'
+alias gwl='git worktree list'
+alias gwr='git worktree remove'
 
 # dotfiles
 export PATH="$PATH:$HOME/dotfiles/.bin"
