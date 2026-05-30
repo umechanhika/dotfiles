@@ -22,7 +22,13 @@
   </header>
 
   <main id="rd-main">
+    <!-- markdown renders into #rd-content; HTML renders into the iframe so the
+         target's own <head> CSS applies in an isolated document. Exactly one is
+         visible at a time (toggled in comment.js render()). The iframe is
+         sandboxed WITHOUT allow-scripts: the target's CSS/static look is faithful
+         but its <script>s do not run (they could fight our marker injection). -->
     <article id="rd-content" aria-label="プレビュー"></article>
+    <iframe id="rd-frame" title="プレビュー" sandbox="allow-same-origin" hidden></iframe>
   </main>
 
   <aside id="rd-sidebar" aria-label="コメントパネル">
