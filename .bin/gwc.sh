@@ -1,6 +1,18 @@
 #!/bin/sh
-# git worktree create & Android Studio launcher
+# git worktree create (+ Android Studio launch for Gradle/Flutter projects)
 # NOTE: Must be sourced (`. gwc.sh`) for `cd` to take effect — use the alias: gwc='. ~/dotfiles/.bin/gwc.sh'
+
+# worktree が Android(Gradle) もしくは Flutter プロジェクトかを判定する。
+# AS 内で作業しないプロジェクトで Studio を起動すると .idea/ 等の不要な
+# ファイルが生成され git 差分を汚すため、該当プロジェクトのみ起動する。
+is_studio_project() {
+  dir="$1"
+  for f in build.gradle build.gradle.kts settings.gradle settings.gradle.kts; do
+    [ -f "$dir/$f" ] && return 0
+  done
+  [ -f "$dir/pubspec.yaml" ] && [ -d "$dir/android" ] && return 0
+  return 1
+}
 
 main_repo=$(git worktree list --porcelain 2>/dev/null | awk '/^worktree / { print $2; exit }')
 
@@ -71,4 +83,6 @@ else
   [ "$new_local_branch" -eq 0 ] && git pull
 fi
 
-studio .
+if is_studio_project "$wt_path"; then
+  studio .
+fi
