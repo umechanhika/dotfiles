@@ -57,7 +57,11 @@ else
       return 1
     fi
     echo "Branch '$branch' not found locally or in origin. Creating new local branch from $default_branch (not pushed)..."
-    git -C "$main_repo" worktree add -b "$branch" "$wt_path" "$default_branch" || {
+    # --no-track: 起点が origin/<default> でも upstream を自動設定させない。
+    # 自動設定すると新ブランチが origin/main を追跡してしまい、後の `git push` が
+    # 名前不一致で失敗したり意図せず main を指したりする。upstream は初回 push 時
+    # （`git push -u origin <branch>`）に同名ブランチへ正しく貼る。
+    git -C "$main_repo" worktree add -b "$branch" --no-track "$wt_path" "$default_branch" || {
       echo "Error: Failed to create local branch '$branch'" >&2
       return 1
     }
