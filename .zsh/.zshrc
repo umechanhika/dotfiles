@@ -10,6 +10,10 @@ alias gwa='git worktree add'
 alias gwl='git worktree list'
 alias gwr='git worktree remove'
 
+# editor
+export EDITOR=vim
+export VISUAL=vim
+
 # dotfiles
 export PATH="$PATH:$HOME/dotfiles/.bin"
 
