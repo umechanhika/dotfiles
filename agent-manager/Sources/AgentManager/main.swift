@@ -18,6 +18,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMenu()
+        // 全セッションが終了したらアプリ自体を終了する。
+        // 次回の SessionStart フックでまた起動するため、常駐し続ける必要はない。
+        store.onAllSessionsEnded = { NSApp.terminate(nil) }
         let hosting = ClickThroughHostingView(rootView: ContentView(store: store))
         hosting.translatesAutoresizingMaskIntoConstraints = false
 

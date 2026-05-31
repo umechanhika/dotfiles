@@ -107,8 +107,9 @@ event = payload.get("hook_event_name") or ""
 # 注意: Notification はここに含めない。notification_type で
 #   permission_prompt(=確認待ち) と idle_prompt(=完了後の放置) を区別し、
 #   後段で個別に state を決める（idle_prompt を waiting に化けさせないため）。
-#   ExitPlanMode / AskUserQuestion は PreToolUse(processing) 後に
-#   permission_prompt の Notification が来るため、自然に waiting へ遷移する。
+#   なお ExitPlanMode は permission_prompt の Notification も来るが、
+#   AskUserQuestion は Notification を発火しない（PreToolUse のみ）。両者とも
+#   即ユーザー操作待ちなので、下の else 節の PreToolUse 分岐で waiting に倒す。
 STATE_BY_EVENT = {
     "SessionStart":     "idle",
     "UserPromptSubmit": "processing",
@@ -150,7 +151,15 @@ if event == "Notification":
         # auth_success 等の情報通知や種別不明: 現在の状態をそのまま維持。
         state = existing.get("state") or "processing"
 else:
-    state = STATE_BY_EVENT.get(event, "processing")
+    tool = payload.get("tool_name", "")
+    # AskUserQuestion / ExitPlanMode は即ユーザー操作待ちでブロックする。
+    # 特に AskUserQuestion は Notification を一切発火しない（PreToolUse のみ）ため、
+    # ここで waiting に倒さないと直前の processing のまま固定されてしまう。
+    # 回答/承認後は PostToolUse(processing) が来て自然に抜ける。
+    if event == "PreToolUse" and tool in ("AskUserQuestion", "ExitPlanMode"):
+        state = "waiting"
+    else:
+        state = STATE_BY_EVENT.get(event, "processing")
 
 now = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
 

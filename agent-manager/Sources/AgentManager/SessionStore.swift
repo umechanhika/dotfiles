@@ -19,14 +19,21 @@ struct Session: Identifiable, Decodable {
     /// 表示の並び順キー（起動順で固定するため created_at、無ければ updated_at）。
     var sortKey: String { created_at ?? updated_at }
 
+    /// ステータス色。システム既定の原色（.yellow/.green/.blue）は彩度がばらつき
+    /// "AIっぽい" 見えになりやすいので、彩度・輝度を揃えた落ち着いたアクセントにする。
     var color: Color {
         switch state {
-        case "waiting":    return .yellow    // 確認待ち（許可/プラン承認/選択肢回答）
-        case "done":       return .green     // 応答完了
-        case "processing": return .blue      // 処理中
-        default:           return .secondary // 待機
+        case "waiting":    return Self.amber   // 確認待ち（許可/プラン承認/選択肢回答）
+        case "done":       return Self.green   // 応答完了
+        case "processing": return Self.blue    // 処理中
+        default:           return Self.slate   // 待機
         }
     }
+
+    static let amber = Color(red: 0.93, green: 0.69, blue: 0.23)
+    static let green = Color(red: 0.36, green: 0.77, blue: 0.50)
+    static let blue  = Color(red: 0.36, green: 0.62, blue: 0.94)
+    static let slate = Color(red: 0.55, green: 0.57, blue: 0.61)
 
     var stateLabel: String {
         switch state {
@@ -36,16 +43,37 @@ struct Session: Identifiable, Decodable {
         default:           return "待機"
         }
     }
+
+    /// 注意を要する状態（確認待ち）。緊急度の強調に使う。
+    var needsAttention: Bool { state == "waiting" }
+    /// 動作中（処理中）。穏やかな"生きている"アニメに使う。
+    var isActive: Bool { state == "processing" }
+
+    /// `updated_at`（例: 2026-05-31T14:23:01+09:00）を Date 化。経過時間表示用。
+    var updatedAtDate: Date? { Self.isoFormatter.date(from: updated_at) }
+
+    private static let isoFormatter = ISO8601DateFormatter()
 }
 
 /// ~/.claude/agent-manager/sessions/ を監視し、JSON 群を読み込んで公開する。
 final class SessionStore: ObservableObject {
     @Published private(set) var sessions: [Session] = []
 
+    /// 全セッションが終了して 0 件になったときに呼ばれる（アプリ終了の配線用）。
+    /// ライフサイクル制御は AppDelegate 側に委ねるため、ここでは直接終了しない。
+    var onAllSessionsEnded: (() -> Void)?
+
     private let dir: URL
     private var source: DispatchSourceFileSystemObject?
     private var dirFD: Int32 = -1
     private var refreshTimer: Timer?
+
+    /// 一度でもセッションを観測したか。起動直後のフック書き込み競合で一瞬 0 件に
+    /// なることがあり、それを「全終了」と誤判定しないためのガード。
+    private var hasSeenSessions = false
+    /// 「非空 → 空」遷移を確定させるためのデバウンス用ワンショットタイマー。
+    /// 削除→再作成の瞬間的な空状態で誤終了しないよう、発火時に再確認する。
+    private var quitTimer: Timer?
 
     init() {
         dir = FileManager.default
@@ -64,6 +92,7 @@ final class SessionStore: ObservableObject {
         source?.cancel()
         if dirFD >= 0 { close(dirFD) }
         refreshTimer?.invalidate()
+        quitTimer?.invalidate()
     }
 
     private func startWatching() {
@@ -105,6 +134,27 @@ final class SessionStore: ObservableObject {
                                      : $0.session_id < $1.session_id
         }
         sessions = loaded
+        evaluateLifecycle(isEmpty: loaded.isEmpty)
+    }
+
+    /// セッション件数の遷移を見て、全終了時にアプリ終了を促す。
+    /// - 非空: 「観測済み」を記録し、保留中の終了予約があれば取り消す。
+    /// - 空: 一度でも観測していれば、約1.5秒後に再確認して終了を促す（デバウンス）。
+    ///   起動直後にまだ観測していない空（hasSeenSessions==false）では何もしない。
+    private func evaluateLifecycle(isEmpty: Bool) {
+        if !isEmpty {
+            hasSeenSessions = true
+            quitTimer?.invalidate()
+            quitTimer = nil
+            return
+        }
+        guard hasSeenSessions, quitTimer == nil else { return }
+        quitTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
+            self.quitTimer = nil
+            // 待っている間に新しいセッションが現れていたら終了しない。
+            if self.sessions.isEmpty { self.onAllSessionsEnded?() }
+        }
     }
 
     /// 所有プロセスが生きているか。死んでいれば false（＝孤児として掃除対象）。
