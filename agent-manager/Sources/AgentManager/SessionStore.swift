@@ -88,8 +88,13 @@ final class SessionStore: ObservableObject {
             .homeDirectoryForCurrentUser
             .appendingPathComponent(".claude/agent-manager/sessions", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        reload()
         startWatching()
+        // 起動直後はフックの JSON 書き込み競合で reload が 0件→N件 と往復し、ウィンドウ高さが
+        // ガクつく。初回読込だけ短く遅延し、書き込みが落ち着いてから一度に反映する。
+        // watching を先に張るので、遅延中の書き込みも FSEvents 側で拾える（取りこぼし無し）。
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            self?.reload()
+        }
         // FSEvents を取りこぼした場合の保険として定期的に再読込する。
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             self?.reload()
