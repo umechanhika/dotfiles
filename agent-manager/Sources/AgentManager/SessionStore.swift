@@ -9,6 +9,7 @@ struct Session: Identifiable, Decodable {
     let state: String          // "waiting" | "done" | "processing" | "idle"
     let iterm_session_id: String
     let updated_at: String
+    let state_since: String?     // その状態が始まった時刻（経過時間表示の基準。旧ファイル互換で optional）
     let host_bundle_id: String?  // セッションを起動したアプリ（旧ファイル互換のため optional）
     let created_at: String?      // 初回作成時刻（表示順の固定に使用。旧ファイル互換で optional）
     let owner_pid: Int?          // セッションを所有する claude プロセスの PID（孤児掃除に使用。旧ファイル互換で optional）
@@ -49,8 +50,15 @@ struct Session: Identifiable, Decodable {
     /// 動作中（処理中）。穏やかな"生きている"アニメに使う。
     var isActive: Bool { state == "processing" }
 
-    /// `updated_at`（例: 2026-05-31T14:23:01+09:00）を Date 化。経過時間表示用。
+    /// `updated_at`（例: 2026-05-31T14:23:01+09:00）を Date 化。最終活動時刻。
     var updatedAtDate: Date? { Self.isoFormatter.date(from: updated_at) }
+
+    /// `state_since`（その状態が始まった時刻）を Date 化。経過時間表示の基準。
+    /// 旧ファイル（state_since 無し）は updated_at にフォールバック。
+    var stateSinceDate: Date? {
+        if let s = state_since, let d = Self.isoFormatter.date(from: s) { return d }
+        return updatedAtDate
+    }
 
     private static let isoFormatter = ISO8601DateFormatter()
 }
