@@ -4,3 +4,6 @@
 
 # agent-manager のビルド成果物（マシンローカル）
 agent-manager/.build/
+
+# window-snap のビルド成果物（マシンローカル）
+window-snap/.build/
