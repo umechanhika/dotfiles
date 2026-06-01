@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  WindowSnap の LaunchAgent テンプレート。
+  install.sh が __LAUNCHER__ / __LOG__ を実パスに置換して
+  ~/Library/LaunchAgents/com.umechanhika.windowsnap.plist へ書き出す（plist 内は絶対パス必須）。
+
+  起動はランチャー windowsnap-launch.sh 経由。ランチャーはソースが新しければ再ビルドしてから
+  exec で .app 内の本体バイナリに置き換える。exec 後は launchd が本体プロセスを直接監視するので、
+  KeepAlive で異常終了時に自動再起動できる（reliability 重視）。
+  本体は Info.plist を持つ .app バンドル内にあり安定した署名がされているので、
+  LSUIElement(Dock非表示) と アクセシビリティ(TCC)許可は正しく効く。
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.umechanhika.windowsnap</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__LAUNCHER__</string>
+  </array>
+
+  <!-- ログイン時に起動し、落ちても常に再起動する（時々止まる問題への対策）。 -->
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+
+  <!-- 即時クラッシュ時の再起動ループ抑制（既定 10 秒）。 -->
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+
+  <!-- GUI セッションのアプリとして扱う（メニューバー/イベントタップのため）。 -->
+  <key>ProcessType</key>
+  <string>Interactive</string>
+
+  <key>StandardOutPath</key>
+  <string>__LOG__</string>
+  <key>StandardErrorPath</key>
+  <string>__LOG__</string>
+</dict>
+</plist>

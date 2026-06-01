@@ -23,3 +23,19 @@ ln -sf ~/dotfiles/.config/.claude/statusline-command.sh ~/.claude/statusline-com
 chmod +x ~/dotfiles/agent-manager/hooks/*.sh ~/dotfiles/agent-manager/scripts/*.sh
 bash ~/dotfiles/agent-manager/scripts/create-signing-cert.sh
 bash ~/dotfiles/agent-manager/scripts/build-app.sh
+
+# window-snap (ウィンドウを画面端へドラッグしてスナップする常駐ユーティリティ)
+# 署名証明書を作成し、署名済み .app をビルドして LaunchAgent でログイン常駐させる。
+# 証明書作成はloginキーチェーンのパスワード（とコード署名信頼の認証）を一度だけ尋ねる。
+# 起動後、システム設定→プライバシーとセキュリティ→アクセシビリティ で WindowSnap.app を有効化すること。
+chmod +x ~/dotfiles/window-snap/scripts/*.sh
+bash ~/dotfiles/window-snap/scripts/create-signing-cert.sh
+bash ~/dotfiles/window-snap/scripts/build-app.sh
+mkdir -p ~/Library/LaunchAgents ~/.local/state/window-snap
+sed -e "s#__LAUNCHER__#$HOME/dotfiles/window-snap/scripts/windowsnap-launch.sh#" \
+    -e "s#__LOG__#$HOME/.local/state/window-snap/stderr.log#" \
+    ~/dotfiles/window-snap/launchd/com.umechanhika.windowsnap.plist \
+    > ~/Library/LaunchAgents/com.umechanhika.windowsnap.plist
+# 既存をアンロードしてから登録（冪等）
+launchctl bootout gui/$(id -u)/com.umechanhika.windowsnap 2>/dev/null || true
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.umechanhika.windowsnap.plist
