@@ -16,6 +16,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panel: NSPanel?
     private let store = SessionStore()
 
+    /// 上端固定リサイズの基準（窓の上端 y = frame.maxY）。中身追従で高さが変わっても
+    /// この上端を保つよう origin.y を詰め直し、左下原点リサイズによる上下動を防ぐ。
+    private var anchorTopY: CGFloat?
+    /// 自前の setFrame 起因の didResize 通知を無視する再入ガード。
+    private var isAdjustingFrame = false
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMenu()
         // 全セッションが終了したらアプリ自体を終了する。
@@ -62,6 +68,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         panel.orderFrontRegardless()
         self.panel = panel
+
+        // 上端固定の基準を、初期配置後の実フレーム上端に合わせる。
+        anchorTopY = panel.frame.maxY
+        // 中身追従で高さが変わったとき上端(maxY)を保つようフレームを張り直す。
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(panelDidResize(_:)),
+            name: NSWindow.didResizeNotification, object: panel)
+        // ユーザーがドラッグで窓を動かしたら、その位置を新しい上端基準として採用する。
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(panelDidMove(_:)),
+            name: NSWindow.didMoveNotification, object: panel)
+    }
+
+    /// 中身追従で高さが変わったとき、上端(maxY)を固定したままリサイズする。
+    /// NSPanel は左下原点なので、何もしないと高さ変化で窓が上下にずれて見える。
+    @objc private func panelDidResize(_ note: Notification) {
+        guard let panel = panel, !isAdjustingFrame else { return }
+        guard let top = anchorTopY else { anchorTopY = panel.frame.maxY; return }
+        let newOriginY = top - panel.frame.height
+        if abs(panel.frame.origin.y - newOriginY) < 0.5 { return }  // 既に上端維持済み
+        var frame = panel.frame
+        frame.origin.y = newOriginY
+        isAdjustingFrame = true
+        panel.setFrame(frame, display: true)   // animate せず即時反映
+        isAdjustingFrame = false
+    }
+
+    /// ドラッグ等で窓を動かしたら、以降のリサイズ基準を現在の上端に更新する。
+    /// （isMovableByWindowBackground=true なので背景ドラッグ移動が日常的に起こる）
+    @objc private func panelDidMove(_ note: Notification) {
+        guard let panel = panel, !isAdjustingFrame else { return }
+        anchorTopY = panel.frame.maxY
     }
 
     /// Dock アイコンのクリックで（閉じた/最小化した後も）小窓を再表示する。
