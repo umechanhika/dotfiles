@@ -85,16 +85,27 @@ mkdir -p <WORK_DIR> && touch <WORK_DIR>/inbox.jsonl && tail -f -n 0 <WORK_DIR>/i
    - `is_new: true` … 新規コメント。`anchor` を `references/anchoring.md` の手順で対象ファイルの該当箇所に解決し、`text` の指示に沿って **Edit** で最小変更する。
    - `is_new: false`（`thread_id` のみ）… **再フィードバック**。そのスレッドの**過去のやり取り（自分の前回返信と前回の編集）を踏まえて**、必要なら前回の編集を調整/取り消し、`text` の指示に沿って直し直す。全文脈が必要なら `curl -s <SERVE_URL>threads` でスレッド一覧を取得。
    - 位置が特定できない item は飛ばさず、何が特定できなかったかを返信で伝える。
-3. 処理した**各スレッドについて**、編集方針（何を・なぜそう直したか／特定できなかった旨）をそのコメントへの返信として記録する:
+3. 処理した**各スレッドについて**、編集方針（何を・なぜそう直したか／特定できなかった旨）をそのコメントへの返信として記録する。**編集で箇所が変わった/消えた場合は、同じ reply でアンカーも更新する**（ブラウザは内容一致でコメント枠を再配置するため。詳細は `references/anchoring.md`「編集後のアンカー更新」）:
 
 ```bash
+# 通常（箇所が変わっていない）
 python3 <SKILL_DIR>/scripts/serve.py reply \
   --target <対象ファイルの絶対パス> \
   --thread-id <item の thread_id> \
   --text "<このコメントへの編集方針・実施内容・理由>"
+
+# 箇所を書き換え/移動した → --anchor-block-raw で編集後ブロック全文を渡す（変更箇所に枠が追従）
+python3 <SKILL_DIR>/scripts/serve.py reply \
+  --target <対象ファイルの絶対パス> --thread-id <thread_id> \
+  --text "<編集方針>" --anchor-block-raw "<編集後のそのブロック全文(生md)>"
+
+# 箇所を削除した → --anchor-gone（枠を出さず「削除されました」と表示）
+python3 <SKILL_DIR>/scripts/serve.py reply \
+  --target <対象ファイルの絶対パス> --thread-id <thread_id> \
+  --text "<削除した旨>" --anchor-gone
 ```
 
-（`reply` は稼働中サーバーへ HTTP POST する。`--target` から既定 work-dir を逆算して `server.url` を読むので、work-dir 指定は不要。）
+（`reply` は稼働中サーバーへ HTTP POST する。`--target` から既定 work-dir を逆算して `server.url` を読むので、work-dir 指定は不要。`--anchor-*` は任意で、付けなければ従来どおり返信のみ。）
 
 4. ユーザーに反映の要点を簡潔に伝える。**Monitor は止めず**、次のバッチを待ち続ける（ライブ編集ループ）。
 

@@ -128,6 +128,32 @@ def _find_thread(thread_id: str):
     return None
 
 
+def _merge_anchor(anchor: dict, update: dict) -> None:
+    """Apply a Claude-supplied anchor update onto an existing thread anchor.
+
+    The browser re-places each comment marker by matching the anchor's stored
+    *content* (``block_raw`` for markdown, ``text`` / ``selected_text`` for
+    HTML) against the freshly rendered document — never by a positional index,
+    which drifts the instant Claude inserts or removes a block above. So when
+    Claude moves or rewrites the commented region it must hand us the new
+    content, and when it deletes the region it must mark the anchor ``gone``.
+    We touch only the fields Claude sends; supplying any content re-anchors the
+    comment (clears ``gone``). The anchor type (block/range/element) is
+    irrelevant here — we just overlay whatever was provided.
+    """
+    if not isinstance(anchor, dict) or not isinstance(update, dict):
+        return
+    touched = False
+    for key in ("block_raw", "text", "selected_text", "block_index"):
+        if key in update:
+            anchor[key] = update[key]
+            touched = True
+    if update.get("gone"):
+        anchor["gone"] = True
+    elif touched:
+        anchor["gone"] = False
+
+
 # ---------------------------------------------------------------------------
 # HTTP handler
 # ---------------------------------------------------------------------------
@@ -364,6 +390,12 @@ class Handler(BaseHTTPRequestHandler):
             thread["messages"].append({"role": "claude", "text": text, "ts": _now()})
             if thread.get("status") != "resolved":
                 thread["status"] = "answered"
+            # Optional: re-point (or retire) this comment's anchor to match the
+            # edit Claude just made, so the browser can place the marker on the
+            # new location instead of losing or misplacing it.
+            anchor_update = payload.get("anchor_update")
+            if isinstance(anchor_update, dict) and isinstance(thread.get("anchor"), dict):
+                _merge_anchor(thread["anchor"], anchor_update)
             STORE["rev"] += 1
             _save_store()
             rev = STORE["rev"]
@@ -556,7 +588,21 @@ def reply_cmd(args: argparse.Namespace) -> int:
             sys.stderr.write("error: server.url not found (is the server running?) in %s\n" % work)
             return 2
     endpoint = base.rstrip("/") + "/threads/reply"
-    body = json.dumps({"thread_id": args.thread_id, "text": args.text}).encode("utf-8")
+    payload = {"thread_id": args.thread_id, "text": args.text}
+    # Optional anchor update: tell the browser where this comment now points
+    # after the edit (moved/rewritten -> new content; deleted -> gone).
+    anchor_update = {}
+    if args.anchor_block_raw is not None:
+        anchor_update["block_raw"] = args.anchor_block_raw
+    if args.anchor_selected_text is not None:
+        anchor_update["selected_text"] = args.anchor_selected_text
+    if args.anchor_text is not None:
+        anchor_update["text"] = args.anchor_text
+    if args.anchor_gone:
+        anchor_update["gone"] = True
+    if anchor_update:
+        payload["anchor_update"] = anchor_update
+    body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         endpoint, data=body, headers={"Content-Type": "application/json"}, method="POST"
     )
@@ -583,6 +629,16 @@ def build_parser() -> argparse.ArgumentParser:
     rp.add_argument("--target", help="target file path (to derive the default work dir)")
     rp.add_argument("--work-dir", dest="work_dir", help="working dir holding server.url")
     rp.add_argument("--url", help="explicit server base URL (e.g. http://127.0.0.1:5050/)")
+    # Optional anchor update (re-point a comment after the edit). All optional;
+    # omit them entirely when the commented region didn't move.
+    rp.add_argument("--anchor-block-raw", dest="anchor_block_raw",
+                    help="moved/rewritten: the FULL raw markdown of the block this comment now points to")
+    rp.add_argument("--anchor-selected-text", dest="anchor_selected_text",
+                    help="range comments: the new selected phrase after the edit")
+    rp.add_argument("--anchor-text", dest="anchor_text",
+                    help="optional updated display snippet for the anchor")
+    rp.add_argument("--anchor-gone", dest="anchor_gone", action="store_true",
+                    help="the commented region was deleted: show no marker (sidebar notes it)")
     rp.set_defaults(func=reply_cmd)
 
     # default (serve) options on the top-level parser
