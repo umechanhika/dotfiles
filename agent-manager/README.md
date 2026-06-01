@@ -9,7 +9,7 @@ dotfiles の一部として `~/dotfiles/agent-manager/` で管理する（ビル
 ```
 Claude Code の各セッション
    │ hooks
-   ├─ SessionStart: agent-manager-launch.sh（未起動なら build & 起動）
+   ├─ SessionStart: agent-manager-launch.sh（未起動 or ソースが新しければ build & 起動）
    ▼
 hooks/agent-manager-hook.sh ──▶ ~/.claude/agent-manager/sessions/<session_id>.json
                                        │ FSEvents で監視
@@ -24,6 +24,7 @@ hooks/agent-manager-hook.sh ──▶ ~/.claude/agent-manager/sessions/<session_
 - 各セッションのホストアプリは hook が**プロセスツリーを遡って、ターミナルを内包する最も近い `.app` の bundle id**を解決して判定（iTerm2 / Android Studio 等）。`__CFBundleIdentifier` / `ITERM_SESSION_ID` は当てにしない（Android Studio を iTerm2 から `studio .` で起動すると、AS の統合ターミナル子プロセスがこれらに iTerm2 の値を継承してしまい誤判定するため）。`iterm_session_id` は host が iTerm2 と確定したときだけ記録する。
 - 状態検知は Claude Code の hooks。マッピングは `hooks/agent-manager-hook.sh` の `STATE_BY_EVENT` で調整可能（例: `Stop` を `waiting` にすると応答完了を「確認待ち」扱いにできる）。
 - アプリの起動は `SessionStart` フックの `agent-manager-launch.sh` が担う。未起動なら（必要に応じて release ビルドして）起動し、起動済みなら何もしない。セッション開始を遅延させないよう重い処理はバックグラウンドに逃がす。
+- **pull した新コードの自動反映**: `.build/` は gitignore のため `git pull` ではソースだけ更新され、成果物 `.app` は古いまま残る。`agent-manager-launch.sh` は新規起動時（プロセス未起動時）に **ビルド入力（`Sources/` / `Package.swift` / `scripts/`）が成果物より新しいかを mtime で判定し、新しければ自動でリビルド**してから起動する。起動中の古いプロセスには触らない（全セッション終了で自動 exit するので、次の新規起動で新コードに切り替わる）。pull 直後にすぐ反映したい場合は下記「起動」の手動手順を参照。
 
 ## セットアップ
 
@@ -72,12 +73,25 @@ bash ~/dotfiles/agent-manager/scripts/build-app.sh             # 署名済み .a
 ### 3. 起動
 
 新規 Claude Code セッションを開始すると `agent-manager-launch.sh` が自動で起動する。
+ソースが成果物より新しければ（pull 直後など）起動前に自動でリビルドされる。
 手動起動する場合:
 
 ```sh
-~/dotfiles/agent-manager/hooks/agent-manager-launch.sh      # 未起動なら起動（冪等）
+~/dotfiles/agent-manager/hooks/agent-manager-launch.sh      # 未起動 or 古ければ build して起動（冪等）
 # または直接 .app を:
 /usr/bin/open ~/dotfiles/agent-manager/.build/AgentManager.app
+```
+
+#### pull した新コードを即時反映したいとき
+
+新コードを pull した時点でアプリが起動中だと、その古いプロセスはそのまま動き続ける
+（自動リビルドは新規起動時のみ）。すぐ差し替えたい場合は、起動中プロセスを終了して
+から作り直す:
+
+```sh
+pkill -f "AgentManager.app/Contents/MacOS/AgentManager"   # 起動中の古いアプリを終了
+bash ~/dotfiles/agent-manager/scripts/build-app.sh         # 最新ソースから .app を作り直す
+/usr/bin/open -g ~/dotfiles/agent-manager/.build/AgentManager.app   # 起動
 ```
 
 Dock には出ず（`.accessory`）、画面右上に小窓が常駐する。ウィンドウは背景ドラッグで移動可能。
