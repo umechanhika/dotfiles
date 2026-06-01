@@ -38,7 +38,8 @@ var ReviewDoc = (function () {
     draftAnchor: null,   // anchor being composed in the popover
     draftBlock: null,
     hovered: null,
-    toastTimer: null
+    toastTimer: null,
+    expanded: {}         // message keys the user manually expanded (survives re-render)
   };
 
   // ---- DOM refs (set once in start) ----
@@ -131,6 +132,22 @@ var ReviewDoc = (function () {
     return node;
   }
 
+  // Isolated marked instance for comment bodies. We render user/Claude comments
+  // as markdown (code fences, inline code, lists, headings) so long answers and
+  // file paths read clearly — but we neutralise raw HTML so a stray <div> in a
+  // reply can't break the card layout. This is a SEPARATE instance so the global
+  // `marked` used for the document body (renderMarkdown) stays untouched.
+  // `breaks:true` preserves the user's single newlines (what pre-wrap did before).
+  var commentMarked = new marked.Marked({ gfm: true, breaks: true });
+  commentMarked.use({ renderer: { html: function (t) {
+    var s = typeof t === "string" ? t : (t && t.text) || "";
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  } } });
+  function renderCommentMarkdown(text) {
+    try { return commentMarked.parse(text || "", { async: false }); }
+    catch (e) { return null; }   // fall back to plain textContent on the caller side
+  }
+
   // ===================================================================
   // bootstrap
   // ===================================================================
@@ -161,6 +178,8 @@ var ReviewDoc = (function () {
     elContent.addEventListener("mousemove", onHover);
     elContent.addEventListener("mouseleave", clearHover);
     elContent.addEventListener("mouseup", onMouseUp);
+
+    initSidebarResize();
 
     popText.addEventListener("keydown", function (e) {
       if (e.key === "Enter" && e.metaKey && !e.shiftKey) { e.preventDefault(); onPopoverAdd(); }
@@ -544,6 +563,13 @@ var ReviewDoc = (function () {
     refreshView();
   }
 
+  // Grow the reply field with its content (manual resize is off in the chat-style
+  // box), capped so a very long draft scrolls instead of overtaking the sidebar.
+  function autoGrowReply(textarea) {
+    textarea.style.height = "auto";
+    textarea.style.height = Math.min(textarea.scrollHeight, 180) + "px";
+  }
+
   // ===================================================================
   // ordering + numbering (document order, computed once per view refresh)
   // ===================================================================
@@ -672,6 +698,66 @@ var ReviewDoc = (function () {
     elSendNote.textContent = nPending > 0
       ? "Cmd+Shift+Enter で送信"
       : "本文を選択/クリック → Cmd+Enter で追加";
+
+    // Heights are only knowable once the cards are laid out, so clamp long
+    // bubbles in a deferred pass.
+    queuePostRender();
+  }
+
+  // ===================================================================
+  // bubble post-render: long-text clamp (deferred so heights are measurable)
+  // ===================================================================
+  var CLAMP_MAX = 220;   // px — ~12-14 lines before we collapse
+  var postRenderQueued = false;
+
+  function queuePostRender() {
+    if (postRenderQueued) return;
+    postRenderQueued = true;
+    requestAnimationFrame(function () { postRenderQueued = false; applyBubblePostRender(); });
+  }
+
+  function applyBubblePostRender() {
+    Array.prototype.forEach.call(elList.querySelectorAll(".rd-bubble-text"), function (textEl) {
+      var bubbleEl = textEl.parentElement;
+      var key = textEl.dataset.mkey || "";
+      // clamp long bodies + attach a toggle. scrollHeight here is the full natural
+      // height (nothing is clamped yet), so it tells us whether this bubble is long
+      // enough to need collapsing — independent of current state.
+      if (!bubbleEl.querySelector(".rd-bubble-more") && textEl.scrollHeight > CLAMP_MAX) {
+        setupClampToggle(textEl, bubbleEl, key, !!(key && state.expanded[key]));
+      }
+    });
+  }
+
+  // Collapse a tall bubble to CLAMP_MAX with a fade + toggle. Expand/collapse is an
+  // instant class flip (animating to/from auto height is fragile, esp. under
+  // reduced-motion); the motion polish lives in the reveal + copy feedback. The
+  // toggle is (re)built on every render and seeded from state.expanded, so an
+  // expanded bubble keeps its "閉じる" affordance across polling re-renders.
+  function setupClampToggle(textEl, bubbleEl, key, startExpanded) {
+    var lh = parseFloat(getComputedStyle(textEl).lineHeight) || 20;
+    var remain = Math.max(1, Math.round((textEl.scrollHeight - CLAMP_MAX) / lh));
+    var collapsedLabel = "続きを表示（残り " + remain + " 行）";
+    var more = h("button", { "class": "rd-bubble-more", type: "button" });
+    function apply(expanded) {
+      if (expanded) {
+        textEl.classList.remove("clamped");
+        if (key) state.expanded[key] = true;
+        more.textContent = "閉じる ▴";
+      } else {
+        textEl.classList.add("clamped");
+        if (key) delete state.expanded[key];
+        more.textContent = collapsedLabel;
+      }
+    }
+    more.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var nowCollapsed = textEl.classList.contains("clamped");
+      apply(nowCollapsed);                                       // collapsed→expand / expanded→collapse
+      if (!nowCollapsed) bubbleEl.scrollIntoView({ block: "nearest" });   // keep top in view when re-collapsing
+    });
+    apply(startExpanded);
+    bubbleEl.appendChild(more);
   }
 
   function header(num, kindLabel, badgeCls) {
@@ -713,7 +799,7 @@ var ReviewDoc = (function () {
       head,
       h("div", { "class": "rd-item-target", text: anchorSnippet(d.anchor) }),
       anchorNote(entry),
-      bubble("user", d.text, true)
+      bubble("user", d.text, true, "draft:" + d.pid)
     ]);
     item.addEventListener("click", cardJump("draft:" + d.pid));
     return item;
@@ -741,11 +827,11 @@ var ReviewDoc = (function () {
       anchorNote(entry)
     ]);
 
-    (t.messages || []).forEach(function (m) { item.appendChild(bubble(m.role, m.text, false)); });
+    (t.messages || []).forEach(function (m, i) { item.appendChild(bubble(m.role, m.text, false, t.id + "#" + i)); });
 
     // pending re-feedback drafts for this thread
     repliesFor(t.id).forEach(function (p) {
-      var b = bubble("user", p.text, true);
+      var b = bubble("user", p.text, true, "reply:" + p.pid);
       b.appendChild(h("button", {
         "class": "rd-bubble-del", type: "button", text: "×", title: "下書きを削除", "aria-label": "下書きを削除",
         on: { click: function (e) { e.stopPropagation(); removePending(p.pid); } }
@@ -753,28 +839,48 @@ var ReviewDoc = (function () {
       item.appendChild(b);
     });
 
-    // reply box (not for resolved)
+    // reply box (not for resolved). Empty: a single-line field with the small
+    // send button parked at its right-centre (Figma-style). On the first
+    // keystroke the field becomes input-only and the button drops just below it,
+    // right-aligned — toggled via the `has-text` class from the input handler.
     if (!isResolved(t)) {
+      var wrap = h("div", { "class": "rd-reply" });
       var ta = h("textarea", {
-        rows: 2,
-        placeholder: t.status === "answered" ? "意図と違えば再フィードバック… (Cmd+Enter)" : "補足… (Cmd+Enter)",
-        on: { keydown: function (e) { if (e.key === "Enter" && e.metaKey && !e.shiftKey) { e.preventDefault(); addReply(t.id, ta); } } }
+        "class": "rd-reply-input", rows: 1,
+        placeholder: t.status === "answered" ? "再フィードバック…" : "補足…",
+        on: {
+          keydown: function (e) { if (e.key === "Enter" && e.metaKey && !e.shiftKey) { e.preventDefault(); addReply(t.id, ta); } },
+          input: function () {
+            var has = ta.value.trim() !== "";
+            wrap.classList.toggle("has-text", has);
+            add.disabled = !has;
+            autoGrowReply(ta);
+          }
+        }
       });
       var add = h("button", {
-        "class": "rd-btn rd-btn-ghost rd-reply-add", type: "button", text: "追加",
+        "class": "rd-reply-send", type: "button", text: "↑",
+        title: "返信を追加 (⌘Enter)", "aria-label": "返信を追加", disabled: true,
         on: { click: function () { addReply(t.id, ta); } }
       });
-      item.appendChild(h("div", { "class": "rd-reply" }, [ta, add]));
+      wrap.appendChild(ta);
+      wrap.appendChild(add);
+      item.appendChild(wrap);
     }
 
     item.addEventListener("click", cardJump("thread:" + t.id));
     return item;
   }
 
-  function bubble(role, text, isDraft) {
+  function bubble(role, text, isDraft, key) {
+    var md = renderCommentMarkdown(text);
+    var body = md != null
+      ? h("div", { "class": "rd-bubble-text rd-md", html: md })
+      : h("div", { "class": "rd-bubble-text", text: text });   // parse failed -> safe plain text
+    if (key) body.dataset.mkey = key;
     return h("div", { "class": "rd-bubble " + (role === "claude" ? "claude" : "user") + (isDraft ? " draft" : "") }, [
       h("span", { "class": "rd-bubble-who", text: role === "claude" ? "Claude" : (isDraft ? "あなた（送信待ち）" : "あなた") }),
-      h("div", { "class": "rd-bubble-text", text: text })
+      body
     ]);
   }
 
@@ -1110,6 +1216,64 @@ var ReviewDoc = (function () {
     elToast.classList.add("show");
     if (state.toastTimer) clearTimeout(state.toastTimer);
     state.toastTimer = setTimeout(function () { elToast.classList.remove("show"); }, 3500);
+  }
+
+  // ===================================================================
+  // sidebar resize (drag the left edge; width persists in localStorage)
+  // ===================================================================
+  // The whole layout keys off the --rd-sidebar-w custom property (the sidebar
+  // width AND #rd-main's right margin), so resizing is just rewriting that one
+  // variable. The marker gutter uses a separate var, so markers are unaffected.
+  var SIDEBAR_W_KEY = "docReview.sidebarW";
+  function clampSidebarWidth(w) {
+    var max = Math.min(820, Math.round(window.innerWidth * 0.6));
+    var min = 300;
+    if (max < min) max = min;
+    return Math.max(min, Math.min(max, w));
+  }
+  function setSidebarWidth(w) {
+    document.documentElement.style.setProperty("--rd-sidebar-w", clampSidebarWidth(w) + "px");
+  }
+  function currentSidebarWidth() {
+    return elSidebar ? Math.round(elSidebar.getBoundingClientRect().width) : 340;
+  }
+  function initSidebarResize() {
+    var handle = document.getElementById("rd-resize-handle");
+    if (!handle) return;
+
+    // restore a saved width, re-clamped to the current viewport
+    var saved = parseInt(localStorage.getItem(SIDEBAR_W_KEY) || "", 10);
+    if (saved) setSidebarWidth(saved);
+
+    var startX = 0, startW = 0, pending = 0, raf = 0;
+    function onMove(e) {
+      pending = clampSidebarWidth(startW - (e.clientX - startX));
+      if (raf) return;   // throttle: at most one DOM write per frame (margin reflow is heavy)
+      raf = requestAnimationFrame(function () {
+        raf = 0;
+        document.documentElement.style.setProperty("--rd-sidebar-w", pending + "px");
+      });
+    }
+    function onUp() {
+      document.body.classList.remove("rd-resizing");
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      document.documentElement.style.setProperty("--rd-sidebar-w", pending + "px");
+      try { localStorage.setItem(SIDEBAR_W_KEY, String(pending)); } catch (e) { /* private mode */ }
+    }
+    handle.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      startX = e.clientX;
+      startW = currentSidebarWidth();
+      pending = startW;
+      document.body.classList.add("rd-resizing");
+      document.addEventListener("pointermove", onMove);
+      document.addEventListener("pointerup", onUp);
+    });
+
+    // a saved-wide sidebar must not overflow after the window shrinks
+    window.addEventListener("resize", function () { setSidebarWidth(currentSidebarWidth()); });
   }
 
   return { start: start };

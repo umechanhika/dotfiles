@@ -15,6 +15,7 @@
   --rd-inline-code-bg: #eef2f6;
   --rd-target-bg: #eef2f6;
   --rd-sidebar-bg: #ffffff;
+  --rd-resize-grip: #aab0bb;   /* always-visible drag grip on the sidebar edge */
   --rd-sidebar-w: 340px;
   --rd-topbar-h: 48px;
   --rd-gutter: 26px;   /* horizontal offset of the marker badge from its block */
@@ -154,6 +155,20 @@ html, body {
   flex-direction: column;
   z-index: 40;
 }
+/* drag-to-resize handle, pinned just outside the sidebar's left edge. A clearly
+   visible grip pill signals the edge is draggable; it grows + colours on hover/drag. */
+.rd-resize-handle { position: absolute; left: -5px; top: 0; bottom: 0; width: 10px; cursor: col-resize; z-index: 41; }
+.rd-resize-handle::before {
+  content: ""; position: absolute; left: 3px; top: 50%; transform: translateY(-50%);
+  width: 4px; height: 52px; border-radius: 3px; background: var(--rd-resize-grip);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.04);
+  transition: background .15s ease, height .15s ease, width .15s ease;
+}
+.rd-resize-handle:hover::before, body.rd-resizing .rd-resize-handle::before {
+  background: var(--rd-accent); height: 76px; width: 5px;
+}
+body.rd-resizing { user-select: none; cursor: col-resize; }
+body.rd-resizing #rd-sidebar { border-left-color: var(--rd-accent); }
 .rd-sidebar-head { padding: 14px 16px; border-bottom: 1px solid #eee; }
 .rd-sidebar-head h2 { margin: 0; font-size: 1rem; display: flex; align-items: center; gap: 8px; }
 .rd-badge {
@@ -284,24 +299,88 @@ html, body {
   border-radius: 8px; padding: 7px 10px; margin: 6px 0;
   font-size: 0.86rem;
 }
-.rd-bubble.user { background: #eef2f6; }
-.rd-bubble.claude { background: #eef7f0; border: 1px solid #cfe7d5; }
-.rd-bubble.draft { background: #fff7e8; border: 1px dashed #e0b877; }
+/* --rd-bubble-bg just holds the bubble background as a variable so the long-text
+   fade gradient below can resolve to the exact colour it sits on (per speaker,
+   light/dark). The appearance is unchanged from the original hard-coded values. */
+.rd-bubble.user   { --rd-bubble-bg: #eef2f6; background: var(--rd-bubble-bg); }
+.rd-bubble.claude { --rd-bubble-bg: #eef7f0; background: var(--rd-bubble-bg); border: 1px solid #cfe7d5; }
+.rd-bubble.draft  { --rd-bubble-bg: #fff7e8; background: var(--rd-bubble-bg); border: 1px dashed #e0b877; }
 .rd-bubble-who { display: block; font-size: 0.68rem; color: #8a8f98; margin-bottom: 2px; }
 .rd-bubble.claude .rd-bubble-who { color: #2f8a3c; font-weight: 700; }
-.rd-bubble-text { white-space: pre-wrap; word-break: break-word; }
+.rd-bubble-text { word-break: break-word; }
+.rd-bubble-text:not(.rd-md) { white-space: pre-wrap; }   /* plain-text fallback keeps manual line breaks */
 .rd-bubble-del {
   position: absolute; top: 4px; right: 6px;
   border: none; background: none; color: #b00; cursor: pointer; font-size: 0.9rem; line-height: 1;
 }
 
-/* re-feedback / reply box */
-.rd-reply { display: flex; gap: 6px; margin-top: 8px; align-items: flex-end; }
-.rd-reply textarea {
-  flex: 1; border: 1px solid #ccc; border-radius: 6px;
-  padding: 6px 8px; font-size: 0.84rem; resize: vertical; font-family: inherit;
+/* ---- markdown rendered inside a comment bubble ---- */
+.rd-md { white-space: normal; font-size: 0.875rem; line-height: 1.55; }
+.rd-md > *:first-child { margin-top: 0; }
+.rd-md > *:last-child  { margin-bottom: 0; }
+.rd-md p  { margin: 0.3em 0; }
+.rd-md ul, .rd-md ol { margin: 0.3em 0; padding-left: 1.3em; }
+.rd-md li { margin: 0.1em 0; }
+.rd-md h1, .rd-md h2, .rd-md h3, .rd-md h4 { line-height: 1.3; margin: 0.5em 0 0.2em; }
+.rd-md h1, .rd-md h2 { font-size: 1.0em; }
+.rd-md h3, .rd-md h4 { font-size: 0.92em; }
+.rd-md blockquote { border-left: 3px solid var(--rd-card-border); margin: 0.3em 0; padding-left: 10px; color: #666; }
+.rd-md a { color: var(--rd-accent); }
+.rd-md pre {
+  background: var(--rd-code-bg); border-radius: 6px;
+  padding: 8px 10px; margin: 0.4em 0; overflow-x: auto;
 }
-.rd-reply-add { width: auto; padding: 6px 10px; font-size: 0.8rem; white-space: nowrap; }
+.rd-md code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: var(--rd-inline-code-bg); padding: 1px 4px; border-radius: 3px; font-size: 0.82em;
+}
+.rd-md pre code { background: none; padding: 0; }
+
+/* long-text clamp + bottom fade + toggle (expand/collapse is an instant flip) */
+.rd-bubble-text.clamped { max-height: 220px; overflow: hidden; position: relative; }
+.rd-bubble-text.clamped::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 48px;
+  pointer-events: none;                          /* don't steal the last line's clicks/selection */
+  background: linear-gradient(to bottom, rgba(0,0,0,0), var(--rd-bubble-bg));
+}
+.rd-bubble-more {
+  border: none; background: none; color: var(--rd-accent);
+  font-size: 0.76rem; cursor: pointer; padding: 4px 0 0;
+}
+
+/* re-feedback / reply box (Figma-style send button).
+   Empty: a single-line field with the small send button parked at its
+   right-centre. Once there's text (.has-text), the field is input-only and the
+   button drops just below it, right-aligned — out of the way of typing. */
+.rd-reply {
+  position: relative; display: flex; flex-direction: column; align-items: flex-end;
+  gap: 6px; margin-top: 8px;
+}
+.rd-reply-input {
+  width: 100%; box-sizing: border-box;
+  border: 1px solid #ccc; border-radius: 8px; background: var(--rd-bg); color: inherit;
+  resize: none; overflow-y: auto; min-height: 36px; max-height: 180px;
+  padding: 7px 38px 7px 10px;          /* right gutter clears the inside button */
+  font-size: 0.84rem; line-height: 1.5; font-family: inherit;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.rd-reply-input:focus { outline: none; border-color: var(--rd-accent); box-shadow: 0 0 0 2px rgba(74,144,217,.15); }
+.rd-reply.has-text .rd-reply-input { padding-right: 10px; }   /* button has left the field */
+.rd-reply.has-text .rd-reply-send { margin-right: 7px; }      /* match the inside state's 7px right inset */
+.rd-reply-send {
+  width: 22px; height: 22px; border-radius: 50%; border: none;
+  background: var(--rd-accent); color: #fff; cursor: pointer;
+  font-size: 0.72rem; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s ease, transform .1s ease;
+}
+.rd-reply-send:not(:disabled):hover { background: var(--rd-accent-d); }
+.rd-reply-send:not(:disabled):active { transform: translateY(1px); }
+.rd-reply-send:disabled { background: #c3ccd6; cursor: default; }
+/* empty state: float the button inside the field, right edge, vertically centred */
+.rd-reply:not(.has-text) .rd-reply-send {
+  position: absolute; top: 50%; right: 7px; transform: translateY(-50%);
+}
 
 /* resolved group */
 .rd-resolved-group { margin-top: 10px; border-top: 1px dashed #ddd; padding-top: 8px; }
@@ -347,7 +426,8 @@ html, body {
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
   .rd-popover, .rd-toast, .rd-marker, .rd-commented, .rd-hover,
-  .rd-item, .rd-btn, .rd-icon-btn, #rd-sidebar { transition: none !important; }
+  .rd-item, .rd-btn, .rd-icon-btn, #rd-sidebar, .rd-resize-handle::before,
+  .rd-reply, .rd-reply-send { transition: none !important; }
   .rd-flash { animation: none !important; }
   html { scroll-behavior: auto; }
 }
@@ -366,6 +446,7 @@ html, body {
     --rd-inline-code-bg: #262b34;
     --rd-target-bg: #21262e;
     --rd-sidebar-bg: #181b21;
+    --rd-resize-grip: #4b525e;
   }
   #rd-content { box-shadow: 0 1px 4px rgba(0,0,0,.5); }
   #rd-frame { box-shadow: 0 1px 4px rgba(0,0,0,.5); }
@@ -377,11 +458,14 @@ html, body {
   .rd-item { background: #1f242c; border-color: var(--rd-card-border); }
   .rd-item-target { color: #aab1bd; }
   .rd-item-note { color: #e0a64d; }
-  .rd-bubble.user { background: #262b34; }
-  .rd-bubble.claude { background: #1c2a22; border-color: #2f4a39; }
-  .rd-bubble.draft { background: #2e2a1d; border-color: #5a4d2e; }
+  .rd-bubble.user   { --rd-bubble-bg: #262b34; }
+  .rd-bubble.claude { --rd-bubble-bg: #1c2a22; border-color: #2f4a39; }
+  .rd-bubble.draft  { --rd-bubble-bg: #2e2a1d; border-color: #5a4d2e; }
+  .rd-md blockquote { color: #aab1bd; }
   .rd-popover { background: #1f242c; border-color: #333a45; color: var(--rd-fg); }
-  .rd-popover textarea, .rd-reply textarea { background: #161a20; color: var(--rd-fg); border-color: #333a45; }
+  .rd-popover textarea { background: #161a20; color: var(--rd-fg); border-color: #333a45; }
+  .rd-reply-input { background: #161a20; color: var(--rd-fg); border-color: #333a45; }
+  .rd-reply-send:disabled { background: #3a414c; }
   .rd-btn-ghost { background: #262b34; border-color: #3a414c; color: #d8dbe0; }
   .rd-btn-ghost:hover { background: #2f343d; }
   .rd-item-resolve { background: #262b34; border-color: #3a414c; color: #c4c9d2; }
@@ -403,6 +487,8 @@ html, body {
     box-shadow: -4px 0 18px rgba(0,0,0,.18);
   }
   #rd-sidebar.open { transform: translateX(0); }
+  /* sidebar is a full-height drawer here, not docked — resizing makes no sense */
+  .rd-resize-handle { display: none; }
   /* keep marker badges inside the (now narrower) content card */
   :root { --rd-gutter: -6px; }   /* negative gutter => marker sits just inside the left edge */
   .rd-marker { top: -8px; }
