@@ -163,6 +163,14 @@ else:
 
 now = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
 
+# state_since: 同じ state が続く間は開始時刻を引き継ぎ、state が変わったら今にする。
+# 経過時間表示の基準。updated_at(=最終活動時刻)と違い、処理中に hook が連続発火しても
+# リセットされず、done のまま idle_prompt が来てもリセットされない。
+if existing.get("state") == state:
+    state_since = existing.get("state_since") or existing.get("updated_at") or now
+else:
+    state_since = now
+
 host = host_bundle or existing.get("host_bundle_id", "")
 is_iterm = host == "com.googlecode.iterm2"
 # iTerm2 のときだけ GUID を保持。他ホストでは継承された偽値を書かない。
@@ -186,6 +194,7 @@ record = {
     "owner_started_at": owner_started_at,
     "created_at": created,
     "updated_at": now,
+    "state_since": state_since,
 }
 
 tmp = path + ".tmp"

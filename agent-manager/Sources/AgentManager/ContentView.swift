@@ -86,10 +86,12 @@ private struct SessionRow: View {
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
                     .lineLimit(1)
                 // 経過時間は TimelineView で30秒ごとに表示だけ更新する。
-                // 基準時刻はセッションの更新時刻に固定する（再描画で変わらない安定値）。
-                // ここを Date() にすると、ホバー等の再描画のたびに基準が「今」へ
-                // リセットされ、ホバーが余計な更新トリガーになってしまうため。
-                TimelineView(.periodic(from: session.updatedAtDate ?? .distantPast, by: 30)) { context in
+                // 基準時刻は「その状態が始まった時刻」(state_since)に固定する。
+                // updated_at(=最終活動時刻)を使うと、処理中に hook が連続発火するたび、
+                // また done のまま idle_prompt が来るたびに基準が「今」へリセットされ、
+                // 経過が 0s から伸びない／途中で 0s に戻ってしまうため。
+                // 状態が続く限り state_since は不変なので、ホバー等の再描画でも変わらない。
+                TimelineView(.periodic(from: session.stateSinceDate ?? .distantPast, by: 30)) { context in
                     Text(statusText(now: context.date))
                         .font(.system(size: 9))
                         .foregroundStyle(.secondary)
@@ -134,8 +136,8 @@ private struct SessionRow: View {
 
     /// 「待機 · 4m」のように状態名＋経過時間を組み立てる。
     private func statusText(now: Date) -> String {
-        guard let updated = session.updatedAtDate else { return session.stateLabel }
-        return "\(session.stateLabel) · \(Self.shortElapsed(from: updated, to: now))"
+        guard let since = session.stateSinceDate else { return session.stateLabel }
+        return "\(session.stateLabel) · \(Self.shortElapsed(from: since, to: now))"
     }
 
     /// 経過秒を 30s / 4m / 2h / 1d のように短く整形。
