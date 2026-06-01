@@ -188,6 +188,12 @@ final class SessionStore: ObservableObject {
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: "/bin/ps")
         proc.arguments = ["-o", "lstart=", "-p", String(pid)]
+        // lstart はロケール依存。記録側(hook)と同じ C ロケールに固定し、ホスト端末の
+        // ロケール差（Android Studio は LANG 無し等）で文字列が食い違って生存プロセスを
+        // 孤児誤判定するのを防ぐ。
+        var env = ProcessInfo.processInfo.environment
+        env["LC_ALL"] = "C"
+        proc.environment = env
         let pipe = Pipe()
         proc.standardOutput = pipe
         proc.standardError = Pipe()

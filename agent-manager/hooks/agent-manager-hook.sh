@@ -56,7 +56,12 @@ resolve_owner_pid() {
 OWNER_PID="$(resolve_owner_pid "$PPID" || true)"
 if [ -z "$OWNER_PID" ]; then OWNER_PID="$PPID"; fi
 # PID 再利用での誤判定を防ぐため起動時刻も記録（ps の lstart）。
-OWNER_STARTED_AT="$(ps -o lstart= -p "$OWNER_PID" 2>/dev/null | sed 's/^ *//;s/ *$//' || true)"
+# LC_ALL=C で固定: lstart はロケール依存（ja_JP は "月  6/ 1..."、C は "Mon Jun  1..."）。
+# 記録側(このフック)と判定側(SessionStore)でロケールが食い違うと、同一プロセスでも
+# 文字列が一致せず生きたセッションを孤児誤判定する。Android Studio を Finder/Dock 起動
+# するとターミナルに LANG が伝播せず（LC_CTYPE=UTF-8 のみ）英語表記になり、ja_JP の
+# アプリ側と食い違って Android Studio のセッションが消えていた。
+OWNER_STARTED_AT="$(LC_ALL=C ps -o lstart= -p "$OWNER_PID" 2>/dev/null | sed 's/^ *//;s/ *$//' || true)"
 # フォールバック1: 環境変数（プロセスツリー解決に失敗した場合のみ）。
 if [ -z "$HOST_BUNDLE" ]; then HOST_BUNDLE="${__CFBundleIdentifier:-}"; fi
 # フォールバック2: TERM_PROGRAM。
