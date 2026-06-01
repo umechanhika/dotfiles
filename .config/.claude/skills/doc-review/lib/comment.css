@@ -175,7 +175,7 @@ html, body {
 .rd-item-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 .rd-item-num {
   background: var(--rd-commented); color: #fff;
-  width: 20px; height: 20px; border-radius: 10px;
+  min-width: 20px; height: 20px; border-radius: 10px; padding: 0 6px; box-sizing: border-box;
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 0.72rem; font-weight: 700;
 }
@@ -185,6 +185,11 @@ html, body {
   font-size: 0.78rem; color: #555; background: var(--rd-target-bg);
   border-radius: 4px; padding: 4px 8px; margin-bottom: 6px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* Shown when a comment's anchor can't be placed (region deleted or moved away)
+   — the body has no marker, so the note explains the missing pin. */
+.rd-item-note {
+  font-size: 0.72rem; color: #b06a00; margin-bottom: 6px;
 }
 .rd-item-text { font-size: 0.88rem; white-space: pre-wrap; word-break: break-word; }
 .rd-item-sentnote { font-size: 0.72rem; color: #2f8a3c; margin-top: 6px; }
@@ -371,6 +376,7 @@ html, body {
   .rd-sidebar-head, .rd-sidebar-foot { border-color: #2c313b; }
   .rd-item { background: #1f242c; border-color: var(--rd-card-border); }
   .rd-item-target { color: #aab1bd; }
+  .rd-item-note { color: #e0a64d; }
   .rd-bubble.user { background: #262b34; }
   .rd-bubble.claude { background: #1c2a22; border-color: #2f4a39; }
   .rd-bubble.draft { background: #2e2a1d; border-color: #5a4d2e; }

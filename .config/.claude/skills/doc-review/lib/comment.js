@@ -15,8 +15,13 @@
  *   actually changed (mtime/content), so a Claude reply (which doesn't touch the
  *   file) no longer wipes and re-renders the whole document — scroll position,
  *   selection, and the open popover survive.
- * - Comment numbering follows document order (vertical position), so the marker
- *   numbers in the body match the sidebar order.
+ * - Each comment's badge number is its stable server id (thread "t3" -> 3): it
+ *   is assigned once and never renumbered, so resolving one comment doesn't
+ *   shift the others. The sidebar is laid out in document order for readability,
+ *   but the numbers are ids, not positions, so they may run out of sequence.
+ * - Markers are re-placed by matching the anchor's captured content against the
+ *   re-rendered document (not a positional index), so edits that move a block
+ *   don't strand the marker; content that's gone shows no marker at all.
  */
 var ReviewDoc = (function () {
   "use strict";
@@ -564,23 +569,59 @@ var ReviewDoc = (function () {
     return Number.MAX_SAFE_INTEGER;
   }
 
-  // Build the ordered list of active items (new drafts + non-resolved threads),
-  // sorted by their position in the document, and assign 1..N accordingly so the
-  // body markers and the sidebar share one consistent numbering.
+  function inDoc(blk) { return !!(blk && rdRoot().contains(blk)); }
+
+  // The badge number is the comment's stable id, not its position. The server
+  // hands every thread a unique, monotonically-increasing id ("t3") and never
+  // reuses or renumbers it, so deriving the number from the id means resolving
+  // comment 2 leaves 1 and 3 exactly as they were — no silent renumbering.
+  function threadNum(t) { return parseInt(String(t.id).replace(/^\D+/, ""), 10); }
+
+  // Why an anchor couldn't be placed, for the sidebar note (null = placed fine).
+  function anchorReason(a) { return a && a.gone ? "deleted" : "missing"; }
+
+  // Build the active list (new drafts + non-resolved threads). Two things are
+  // computed here and reused everywhere: the placement (which block each anchor
+  // resolves to, or none) and the badge number. Layout is document order so the
+  // sidebar mirrors the body top-to-bottom; the number is independent of order.
   function computeOrder() {
     var entries = [];
+
+    // Drafts have no server id yet, so give them a provisional number that
+    // continues past the highest existing thread number (resolved included) to
+    // avoid colliding badges. On submit the server assigns the real id and the
+    // next refresh replaces this — so it needn't match exactly, just not clash.
+    var maxThread = 0;
+    state.threads.forEach(function (t) {
+      var n = threadNum(t);
+      if (!isNaN(n) && n > maxThread) maxThread = n;
+    });
+
+    var draftSeq = 0;
     newDrafts().forEach(function (d) {
       var blk = anchorToBlock(d.anchor) || d.block;
-      entries.push({ key: "draft:" + d.pid, kind: "draft", ref: d, top: blockTop(blk) });
+      if (!inDoc(blk)) blk = null;
+      draftSeq += 1;
+      entries.push({
+        key: "draft:" + d.pid, kind: "draft", ref: d, top: blockTop(blk),
+        block: blk, located: !!blk, reason: blk ? null : anchorReason(d.anchor),
+        num: maxThread + draftSeq
+      });
     });
     state.threads.forEach(function (t) {
       if (isResolved(t)) return;
       var blk = anchorToBlock(t.anchor);
-      entries.push({ key: "thread:" + t.id, kind: "thread", ref: t, top: blockTop(blk) });
+      if (!inDoc(blk)) blk = null;
+      entries.push({
+        key: "thread:" + t.id, kind: "thread", ref: t, top: blockTop(blk),
+        block: blk, located: !!blk, reason: blk ? null : anchorReason(t.anchor),
+        num: threadNum(t)
+      });
     });
-    entries.sort(function (a, b) { return a.top - b.top; });
+
+    entries.sort(function (a, b) { return a.top - b.top; });   // layout order only
     var nums = {};
-    entries.forEach(function (e, i) { nums[e.key] = i + 1; });
+    entries.forEach(function (e) { nums[e.key] = e.num; });
     return { nums: nums, order: entries };
   }
 
@@ -613,15 +654,15 @@ var ReviewDoc = (function () {
 
     // active items (drafts + open/answered threads) in document order
     o.order.forEach(function (e) {
-      if (e.kind === "draft") elList.appendChild(draftCard(e.ref, nums[e.key]));
-      else elList.appendChild(threadCard(e.ref, nums[e.key]));
+      if (e.kind === "draft") elList.appendChild(draftCard(e.ref, nums[e.key], e));
+      else elList.appendChild(threadCard(e.ref, nums[e.key], e));
     });
 
-    // resolved (collapsed)
+    // resolved (collapsed) — keep their stable number so reopening is seamless
     if (resolved.length) {
       var details = h("details", { "class": "rd-resolved-group" },
         [h("summary", { text: "解決済み (" + resolved.length + ")" })]);
-      resolved.forEach(function (t) { details.appendChild(threadCard(t, null)); });
+      resolved.forEach(function (t) { details.appendChild(threadCard(t, threadNum(t), null)); });
       elList.appendChild(details);
     }
 
@@ -635,12 +676,23 @@ var ReviewDoc = (function () {
 
   function header(num, kindLabel, badgeCls) {
     var kids = [];
-    if (num != null) {
+    if (num != null && !isNaN(num)) {
       kids.push(h("span", { "class": "rd-item-num " + (badgeCls || ""), text: String(num) }));
       kids.push(" ");
     }
     kids.push(h("span", { "class": "rd-item-kind", text: kindLabel }));
     return h("div", { "class": "rd-item-head" }, [h("span", null, kids)]);
+  }
+
+  // When a comment's anchor can't be placed on the document, the body shows no
+  // marker (by design — we don't guess a location). Surface a small note in the
+  // card so the comment doesn't look orphaned and the user understands why.
+  function anchorNote(entry) {
+    if (!entry || entry.located) return null;
+    var msg = entry.reason === "deleted"
+      ? "この箇所は削除されました"
+      : "該当箇所が見つかりません（編集で移動した可能性）";
+    return h("div", { "class": "rd-item-note", text: msg });
   }
 
   // Clicking a card (but not a control inside it) jumps to the anchored block.
@@ -651,7 +703,7 @@ var ReviewDoc = (function () {
     };
   }
 
-  function draftCard(d, num) {
+  function draftCard(d, num, entry) {
     var head = header(num, "下書き · " + anchorKindLabel(d.anchor), "draft");
     head.appendChild(h("button", {
       "class": "rd-item-del", type: "button", text: "削除", "aria-label": "下書きを削除",
@@ -660,13 +712,14 @@ var ReviewDoc = (function () {
     var item = h("div", { "class": "rd-item draft", dataset: { key: "draft:" + d.pid } }, [
       head,
       h("div", { "class": "rd-item-target", text: anchorSnippet(d.anchor) }),
+      anchorNote(entry),
       bubble("user", d.text, true)
     ]);
     item.addEventListener("click", cardJump("draft:" + d.pid));
     return item;
   }
 
-  function threadCard(t, num) {
+  function threadCard(t, num, entry) {
     var label = t.status === "answered" ? "返信あり" : (isResolved(t) ? "解決済み" : "対応中");
     var head = header(num, label + " · " + anchorKindLabel(t.anchor),
       t.status === "answered" ? "answered" : "");
@@ -684,7 +737,8 @@ var ReviewDoc = (function () {
 
     var item = h("div", { "class": "rd-item thread status-" + t.status, dataset: { key: "thread:" + t.id } }, [
       head,
-      h("div", { "class": "rd-item-target", text: anchorSnippet(t.anchor) })
+      h("div", { "class": "rd-item-target", text: anchorSnippet(t.anchor) }),
+      anchorNote(entry)
     ]);
 
     (t.messages || []).forEach(function (m) { item.appendChild(bubble(m.role, m.text, false)); });
@@ -772,16 +826,77 @@ var ReviewDoc = (function () {
     });
   }
 
+  // Resolve an anchor to its block element by matching the *content* we
+  // captured when the comment was made — block_raw for markdown, text /
+  // selected_text for HTML — against the freshly rendered document, NOT by a
+  // positional index. An index drifts the moment Claude inserts or deletes a
+  // block above, which is what used to pin a comment onto the wrong place. If
+  // the content can't be found (the region was deleted, or rewritten without
+  // Claude telling us the new text via `reply --anchor-block-raw`), we return
+  // null and show NO marker — pointing nowhere is better than pointing wrong.
   function anchorToBlock(a) {
-    if (!a) return null;
-    var root = rdRoot();
-    if (a.kind === "markdown" && typeof a.block_index === "number" && a.block_index >= 0) {
-      return root.querySelector('[data-srcblock="' + a.block_index + '"]');
-    }
-    if (a.kind === "html" && a.css_path) {
-      try { return root.querySelector(stripRootPath(a.css_path)); } catch (e) { return null; }
-    }
+    if (!a || a.gone) return null;
+    if (a.kind === "markdown") return markdownBlock(a);
+    if (a.kind === "html") return htmlElement(a);
     return null;
+  }
+
+  function markdownBlock(a) {
+    var wanted = normRaw(a.block_raw);
+    if (!wanted) return null;
+    var matches = [];
+    for (var i = 0; i < state.blockRaws.length; i++) {
+      if (normRaw(state.blockRaws[i]) === wanted) matches.push(i);
+    }
+    if (matches.length === 0) return null;   // content gone -> no marker
+    var idx = matches[0];
+    if (matches.length > 1) {
+      // Identical blocks (e.g. several "## 概要") are inherently ambiguous, so
+      // here — and only here — fall back to the stored index as a hint and pick
+      // the nearest surviving match.
+      var hint = typeof a.block_index === "number" ? a.block_index : idx;
+      var best = Infinity;
+      matches.forEach(function (m) {
+        var d = Math.abs(m - hint);
+        if (d < best) { best = d; idx = m; }
+      });
+    }
+    return rdRoot().querySelector('[data-srcblock="' + idx + '"]');
+  }
+
+  // HTML structure is arbitrary and re-renders can reshape it freely, so there's
+  // no clean content key like block_raw. We try the recorded css_path first but
+  // verify the element still holds the anchored text (nth-of-type paths drift),
+  // then fall back to a text search, preferring the most specific (shortest)
+  // match so we don't latch onto an ancestor like <body>. When nothing matches
+  // confidently we return null rather than guess.
+  function htmlElement(a) {
+    var root = rdRoot();
+    var wantText = stripEllipsis(a.text || a.selected_text || "");
+    if (a.css_path) {
+      try {
+        var el = root.querySelector(stripRootPath(a.css_path));
+        if (el && htmlTextMatches(el, a, wantText)) return el;
+      } catch (e) { /* selector invalid after edits: fall through to text search */ }
+    }
+    if (!wantText) return null;
+    var tag = (a.tag || "").toLowerCase();
+    var candidates = root.querySelectorAll(tag || "*");
+    var best = null, bestLen = Infinity;
+    for (var i = 0; i < candidates.length; i++) {
+      var c = candidates[i];
+      if (!htmlTextMatches(c, a, wantText)) continue;
+      var len = (c.textContent || "").length;
+      if (len < bestLen) { bestLen = len; best = c; }
+    }
+    return best;
+  }
+
+  function htmlTextMatches(el, a, wantText) {
+    var txt = (el.textContent || "").trim();
+    if (a.selected_text) return txt.indexOf(a.selected_text) !== -1;
+    if (wantText) return txt.indexOf(wantText) === 0;   // text was an excerpt (may have ended in …)
+    return false;
   }
 
   // Re-place all markers (new drafts + non-resolved threads) after a render,
@@ -790,10 +905,9 @@ var ReviewDoc = (function () {
     o = o || computeOrder();
     clearMarkers();
     o.order.forEach(function (e) {
-      var blk = e.kind === "draft" ? (anchorToBlock(e.ref.anchor) || e.ref.block) : anchorToBlock(e.ref.anchor);
-      if (!blk || !rdRoot().contains(blk)) return;
+      if (!e.located || !e.block) return;   // unplaceable (deleted/moved-away) -> no marker
       var cls = e.kind === "draft" ? "draft" : (e.ref.status === "answered" ? "answered" : null);
-      markBlock(blk, e.key, o.nums[e.key], cls);
+      markBlock(e.block, e.key, o.nums[e.key], cls);
     });
   }
 
@@ -978,6 +1092,11 @@ var ReviewDoc = (function () {
     return rootName + " > " + parts.join(" > ");
   }
   function stripRootPath(path) { return path.replace(/^(?:#rd-content|body)\s*>\s*/, ""); }
+  // Normalise a block's raw markdown for content comparison: marked's tok.raw
+  // can carry trailing newlines that the text Claude reads back from the file
+  // won't, so compare on a trimmed, \n-normalised form.
+  function normRaw(s) { return (s || "").replace(/\r\n/g, "\n").trim(); }
+  function stripEllipsis(s) { return (s || "").replace(/…$/, ""); }
   function excerpt(s, n) { s = s || ""; return s.length > n ? s.slice(0, n) + "…" : s; }
   function escapeHtml(s) {
     return (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
