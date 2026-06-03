@@ -24,6 +24,10 @@ final class StatusBarController {
     /// メニューバーでの表示順：done(緑) → processing(青) → waiting(黄) → idle(灰)。
     private static let displayOrder: [Session.StatusCategory] = [.done, .processing, .waiting, .idle]
 
+    /// メニューバーのアイコン(SF Symbol)とテキストで共有する基準サイズ。
+    /// システム標準サイズ(≈13pt)。小さめにしたい/大きくしたい場合はここだけ変える。
+    private static let glyphPointSize = NSFont.systemFontSize
+
     init(store: SessionStore) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
@@ -77,14 +81,16 @@ final class StatusBarController {
         if visible.isEmpty {
             // セッション 0 件（全終了直前の一瞬）。控えめなプレースホルダにする。
             button.attributedTitle = NSAttributedString(string: "")
-            button.image = NSImage(systemSymbolName: "circle.dotted", accessibilityDescription: "AgentManager")
+            let config = NSImage.SymbolConfiguration(pointSize: Self.glyphPointSize, weight: .regular)
+            button.image = NSImage(systemSymbolName: "circle.dotted", accessibilityDescription: "AgentManager")?
+                .withSymbolConfiguration(config)
             button.toolTip = "AgentManager"
             return
         }
         button.image = nil
 
-        // メニューバーに馴染むよう少し小さめのフォント。● は数字よりやや沈むので baselineOffset で微調整。
-        let font = NSFont.systemFont(ofSize: NSFont.systemFontSize(for: .small))
+        // メニューバーに馴染むシステム標準サイズのフォント。● は数字よりやや沈むので baselineOffset で微調整。
+        let font = NSFont.systemFont(ofSize: Self.glyphPointSize)
         let result = NSMutableAttributedString()
         for (index, pair) in visible.enumerated() {
             let (category, count) = pair
