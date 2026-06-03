@@ -12,11 +12,12 @@ final class StatusBarController {
     private let statusItem: NSStatusItem
     private var cancellables = Set<AnyCancellable>()
 
-    /// フローティングウィンドウを表示したいか。初期 true（常に表示のまま）。
-    /// メニューバーのクリックでトグルし、値が変わったときだけ `setWindowVisible` を呼ぶ。
-    private var userWantsWindow = true { didSet { applyVisibility() } }
-    /// 直近で `setWindowVisible` に渡した値。変化時のみ作用させてチラつき・無駄な再描画を防ぐ。
-    private var lastApplied: Bool?
+    /// 表示対象状態（waiting=対応待ち / done=結果確認）にあるセッションの ID 集合。
+    /// どちらもユーザーがウィンドウを開いて対応・確認しに行く状態。新規出現/全解消のエッジ検出に使う。
+    /// 空で開始するので、起動時に既存の対象があれば最初の reload で newlyActionable として
+    /// 検出され表示される（＝起動時に対象があれば表示、無ければ初期非表示のまま）。
+    /// sink 初回は必ず空配列なので、ベースライン確立ガードのような特殊分岐は不要。
+    private var knownActionableIDs: Set<String> = []
 
     /// AppDelegate が panel を出し入れするためのクロージャ。
     var setWindowVisible: ((Bool) -> Void)?
@@ -30,10 +31,14 @@ final class StatusBarController {
             button.target = self
             button.action = #selector(statusItemClicked(_:))
         }
-        // sessions の変化を購読して表示を更新する（ContentView の @ObservedObject と同じデータ源）。
+        // sessions の変化を購読して、ウィンドウの表示制御（waiting 連動）とメニューバー描画を更新する。
+        // （ContentView の @ObservedObject と同じデータ源。書き込む状態が別なので順序非依存。）
         store.$sessions
             .receive(on: RunLoop.main)
-            .sink { [weak self] sessions in self?.render(for: sessions) }
+            .sink { [weak self] sessions in
+                self?.updateVisibility(for: sessions)
+                self?.render(for: sessions)
+            }
             .store(in: &cancellables)
         render(for: store.sessions)
     }
@@ -45,19 +50,37 @@ final class StatusBarController {
 
     // MARK: - 表示状態の制御
 
+    /// メニューバーアイコンのクリック。表示/非表示トグルは廃止し、前面化のみ行う。
+    /// （隠すのはウィンドウの最小化/閉じる、または waiting 全解消による自動非表示で行う。）
     @objc private func statusItemClicked(_ sender: Any?) {
-        userWantsWindow.toggle()
+        setWindowVisible?(true)
     }
 
-    /// Dock アイコンのクリック等からの確実な復帰口。常に表示側へ倒す。
+    /// Dock アイコンのクリック等からの確実な前面化口。
     func forceShow() {
-        userWantsWindow = true
+        setWindowVisible?(true)
     }
 
-    private func applyVisibility() {
-        guard userWantsWindow != lastApplied else { return }
-        lastApplied = userWantsWindow
-        setWindowVisible?(userWantsWindow)
+    /// 表示対象（waiting / done）の発生・全解消エッジに連動してウィンドウを出し入れする。
+    /// - 新規に waiting/done になったセッション（known に無い ID。起動時の既存も含む）→ 表示。
+    /// - 対象が全て解消（waiting も done も無くなる＝全て processing/idle）→ 非表示。
+    /// - 継続中（同じ対象のまま・新規なし）→ 何もしない＝ユーザーが最小化/閉じた状態を尊重。
+    ///   30秒ポーリングの再評価でも勝手に復活させないため、件数ではなく ID 集合のエッジで判定する。
+    /// 表示パス（orderFrontRegardless）はフォーカスを奪わない。
+    private func updateVisibility(for sessions: [Session]) {
+        // waiting（対応待ち）と done（結果確認）は、どちらもユーザーがウィンドウを開いて
+        // 対応・確認しに行く状態。これらを「表示対象」とする。
+        let current = Set(sessions.filter { $0.category == .waiting || $0.category == .done }
+                                  .map { $0.id })
+        let newlyActionable = current.subtracting(knownActionableIDs)
+        let hadActionable = !knownActionableIDs.isEmpty
+        knownActionableIDs = current
+
+        if !newlyActionable.isEmpty {
+            setWindowVisible?(true)          // 新規の waiting/done → 表示
+        } else if hadActionable && current.isEmpty {
+            setWindowVisible?(false)         // 対象が全解消 → 非表示
+        }
     }
 
     // MARK: - 描画
