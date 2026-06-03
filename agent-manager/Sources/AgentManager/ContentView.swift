@@ -193,15 +193,21 @@ private struct StatusDot: View {
     }
 
     private func restartAnimation() {
-        // いったん止めてから状態に応じたアニメを張り直す。
-        withAnimation(.easeOut(duration: 0.2)) { animate = false }
-        if session.needsAttention {
-            withAnimation(.easeOut(duration: 1.3).repeatForever(autoreverses: false)) {
-                animate = true
-            }
-        } else if session.isActive {
-            withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
-                animate = true
+        // 直前のアニメを確実に止める。withAnimation で包むと同一 tick 内で次の
+        // animate=true に上書きされ、直前が waiting(animate=true) のとき false→true の
+        // 差分が消えて repeatForever が動かず固まる（waiting → processing で顕在化）。
+        // 素の代入でこの tick の値を確定させる。
+        animate = false
+        // 次の tick で張り直すことで、必ず false→true の差分を作り呼吸/ハローを起動する。
+        DispatchQueue.main.async {
+            if session.needsAttention {
+                withAnimation(.easeOut(duration: 1.3).repeatForever(autoreverses: false)) {
+                    animate = true
+                }
+            } else if session.isActive {
+                withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
+                    animate = true
+                }
             }
         }
     }
