@@ -20,14 +20,35 @@ struct Session: Identifiable, Decodable {
     /// 表示の並び順キー（起動順で固定するため created_at、無ければ updated_at）。
     var sortKey: String { created_at ?? updated_at }
 
+    /// ステータスの分類。色・件数集計（メニューバー）の分類根拠を 1 箇所に集約する。
+    enum StatusCategory {
+        case waiting     // 確認待ち（許可/プラン承認/選択肢回答）
+        case done        // 応答完了
+        case processing  // 処理中
+        case idle        // 待機（開始直後/未知の state も含む）
+    }
+
+    /// `state` 文字列をカテゴリへ写す。未知の state は `.idle` 扱い。
+    var category: StatusCategory {
+        switch state {
+        case "waiting":    return .waiting
+        case "done":       return .done
+        case "processing": return .processing
+        default:           return .idle
+        }
+    }
+
     /// ステータス色。システム既定の原色（.yellow/.green/.blue）は彩度がばらつき
     /// "AIっぽい" 見えになりやすいので、彩度・輝度を揃えた落ち着いたアクセントにする。
-    var color: Color {
-        switch state {
-        case "waiting":    return Self.amber   // 確認待ち（許可/プラン承認/選択肢回答）
-        case "done":       return Self.green   // 応答完了
-        case "processing": return Self.blue    // 処理中
-        default:           return Self.slate   // 待機
+    var color: Color { Self.color(for: category) }
+
+    /// カテゴリ → 色。フローティング窓とメニューバーで同じ配色を共有する。
+    static func color(for category: StatusCategory) -> Color {
+        switch category {
+        case .waiting:    return amber
+        case .done:       return green
+        case .processing: return blue
+        case .idle:       return slate
         }
     }
 

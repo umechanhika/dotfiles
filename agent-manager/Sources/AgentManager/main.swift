@@ -15,6 +15,8 @@ final class ClickThroughHostingView<Content: View>: NSHostingView<Content> {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panel: NSPanel?
     private let store = SessionStore()
+    /// メニューバー常駐（ステータス別件数の表示／窓の表示トグル）。
+    private var statusBar: StatusBarController?
 
     /// 上端固定リサイズの基準（窓の上端 y = frame.maxY）。中身追従で高さが変わっても
     /// この上端を保つよう origin.y を詰め直し、左下原点リサイズによる上下動を防ぐ。
@@ -79,6 +81,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(
             self, selector: #selector(panelDidMove(_:)),
             name: NSWindow.didMoveNotification, object: panel)
+
+        // メニューバー常駐を起動。窓の表示/非表示はクロージャ経由で AppDelegate に委ねる。
+        let sb = StatusBarController(store: store)
+        sb.setWindowVisible = { [weak self] visible in
+            guard let panel = self?.panel else { return }
+            if visible {
+                if panel.isMiniaturized { panel.deminiaturize(nil) }
+                panel.orderFrontRegardless()
+            } else {
+                panel.orderOut(nil)
+            }
+        }
+        self.statusBar = sb
     }
 
     /// 中身追従で高さが変わったとき、上端(maxY)を固定したままリサイズする。
@@ -102,12 +117,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         anchorTopY = panel.frame.maxY
     }
 
-    /// Dock アイコンのクリックで（閉じた/最小化した後も）小窓を再表示する。
+    /// Dock アイコンのクリックで（閉じた/最小化した後も、メニューバーで非表示にした後も）小窓を再表示する。
+    /// 状態の二重管理を避けるため StatusBarController 経由（userWantsWindow=true）で表示する。
+    /// メニューバーがはみ出して押せない状況からの確実な復帰口でもある。
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if let panel = panel {
-            if panel.isMiniaturized { panel.deminiaturize(nil) }
-            panel.orderFrontRegardless()
-        }
+        statusBar?.forceShow()
         return true
     }
 
