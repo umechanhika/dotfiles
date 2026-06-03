@@ -12,7 +12,8 @@ brew bundle --global
 ln -s ~/dotfiles/.vim ~
 ln -s ~/dotfiles/.vim/.vimrc ~
 
-# Claude Code global skills
+# Claude Code global config / skills
+ln -sf ~/dotfiles/.config/.claude/CLAUDE.md ~/.claude/CLAUDE.md
 ln -sf ~/dotfiles/.config/.claude/skills ~/.claude/skills
 ln -sf ~/dotfiles/.config/.claude/settings.json ~/.claude/settings.json
 ln -sf ~/dotfiles/.config/.claude/statusline-command.sh ~/.claude/statusline-command.sh
