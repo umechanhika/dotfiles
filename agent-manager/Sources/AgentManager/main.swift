@@ -68,10 +68,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             panel.setFrameOrigin(NSPoint(x: f.maxX - size.width - 20, y: f.maxY - size.height - 20))
         }
 
-        panel.orderFrontRegardless()
+        // 初期表示はしない（waiting 連動）。waiting があれば StatusBarController が表示側へ倒す。
         self.panel = panel
 
-        // 上端固定の基準を、初期配置後の実フレーム上端に合わせる。
+        // 上端固定の基準を、初期配置後の実フレーム上端に合わせる（表示前でも setFrameOrigin 済みで有効）。
         anchorTopY = panel.frame.maxY
         // 中身追従で高さが変わったとき上端(maxY)を保つようフレームを張り直す。
         NotificationCenter.default.addObserver(
