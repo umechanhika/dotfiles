@@ -75,6 +75,16 @@ enum ITermFocus {
         let proc = Process()
         proc.executableURL = launcher
         proc.arguments = [cwd]
+        // studio ランチャー(Rust製)は起動時に環境変数 PWD を chdir 先にする。AgentManager は
+        // SessionStart フックから起動され起動元セッションの PWD を握り続けるため、その worktree が
+        // 削除されると PWD が無効になりランチャーが "Cannot set current directory" で起動失敗する。
+        // 常に存在する HOME を渡して、揮発的な起動元 PWD から切り離す（前面化する対象は引数 cwd の
+        // 絶対パスで指定済みなので、ランチャー自身の作業ディレクトリは何でもよい）。
+        let safeDir = FileManager.default.homeDirectoryForCurrentUser
+        proc.currentDirectoryURL = safeDir          // カーネル cwd（HOME は必ず存在＝run は throw しない）
+        var env = ProcessInfo.processInfo.environment
+        env["PWD"] = safeDir.path                    // ランチャーが実際に読むのはこちら（本質的な修正）
+        proc.environment = env
         let errPipe = Pipe()
         proc.standardError = errPipe
         do {
