@@ -164,51 +164,77 @@ private struct SessionRow: View {
 }
 
 /// 状態に応じて振る舞いが変わるステータスドット。
+/// 状態ごとの専用ビューへ分岐し、状態変化時にビューごと作り直す（`.id(category)`）。
+/// 各アニメ（repeatForever）はビューの生成〜破棄に束縛されるため、手動停止に頼らず
+/// 漏れ・累積が原理的に起きない（旧実装は共有 @State を手動トグルしており、状態遷移の
+/// たびに repeatForever が積み重なってドットの脈動が肥大化していた）。
 /// - 確認待ち: ユーザー操作が必要な唯一の状態なので、広がって消えるハロー（脈動）で注意を引く。
 /// - 処理中:   "動いている" ことが伝わる穏やかな呼吸アニメ。
 /// - 完了/待機: 静止。
 private struct StatusDot: View {
     let session: Session
+
+    var body: some View {
+        Group {
+            switch session.category {
+            case .waiting:     WaitingDot(color: session.color)
+            case .processing:  ProcessingDot(color: session.color)
+            case .done, .idle: StaticDot(color: session.color)
+            }
+        }
+        .frame(width: 8, height: 8)
+        // 状態が変わったらビューを作り直す＝実行中アニメをビューごと破棄する。
+        .id(session.category)
+    }
+}
+
+/// 完了/待機: 静止ドット。
+private struct StaticDot: View {
+    let color: Color
+    var body: some View {
+        Circle().fill(color).frame(width: 8, height: 8)
+    }
+}
+
+/// 確認待ち: 広がって薄くなるハロー + 静止ドット。
+private struct WaitingDot: View {
+    let color: Color
     @State private var animate = false
 
     var body: some View {
         ZStack {
-            // 確認待ちのときだけ出る、広がって薄くなるハロー。
-            if session.needsAttention {
-                Circle()
-                    .fill(session.color)
-                    .frame(width: 8, height: 8)
-                    .scaleEffect(animate ? 2.2 : 1)
-                    .opacity(animate ? 0 : 0.55)
-            }
             Circle()
-                .fill(session.color)
+                .fill(color)
                 .frame(width: 8, height: 8)
-                .scaleEffect(session.isActive && animate ? 0.8 : 1)
-                .opacity(session.isActive && animate ? 0.45 : 1)
+                .scaleEffect(animate ? 2.2 : 1)
+                .opacity(animate ? 0 : 0.55)
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
         }
-        .frame(width: 8, height: 8)
-        .onAppear { restartAnimation() }
-        .onChange(of: session.state) { _ in restartAnimation() }
+        .onAppear {
+            withAnimation(.easeOut(duration: 1.3).repeatForever(autoreverses: false)) {
+                animate = true
+            }
+        }
     }
+}
 
-    private func restartAnimation() {
-        // 直前のアニメを確実に止める。withAnimation で包むと同一 tick 内で次の
-        // animate=true に上書きされ、直前が waiting(animate=true) のとき false→true の
-        // 差分が消えて repeatForever が動かず固まる（waiting → processing で顕在化）。
-        // 素の代入でこの tick の値を確定させる。
-        animate = false
-        // 次の tick で張り直すことで、必ず false→true の差分を作り呼吸/ハローを起動する。
-        DispatchQueue.main.async {
-            if session.needsAttention {
-                withAnimation(.easeOut(duration: 1.3).repeatForever(autoreverses: false)) {
-                    animate = true
-                }
-            } else if session.isActive {
+/// 処理中: 穏やかな呼吸アニメ。
+private struct ProcessingDot: View {
+    let color: Color
+    @State private var animate = false
+
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: 8, height: 8)
+            .scaleEffect(animate ? 0.8 : 1)
+            .opacity(animate ? 0.45 : 1)
+            .onAppear {
                 withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
                     animate = true
                 }
             }
-        }
     }
 }
