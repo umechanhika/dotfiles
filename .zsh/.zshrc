@@ -51,3 +51,4 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 autoload -Uz compinit && compinit
 
 alias gwc='. $HOME/dotfiles/.bin/gwc.sh'
+alias gwclean='. $HOME/dotfiles/.bin/gwclean.sh'
