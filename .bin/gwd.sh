@@ -1,15 +1,15 @@
 #!/bin/sh
 # git worktree cleanup: 今いる worktree とそのブランチを削除し、メイン worktree で
 # デフォルトブランチを最新化する。gwc.sh（worktree 作成）と対になる片付けコマンド。
-# NOTE: Must be sourced (`. gwclean.sh`) — 自 worktree を削除すると cwd が消えるため、
-# 先にメイン worktree へ cd する必要がある。alias: gwclean='. ~/dotfiles/.bin/gwclean.sh'
+# NOTE: Must be sourced (`. gwd.sh`) — 自 worktree を削除すると cwd が消えるため、
+# 先にメイン worktree へ cd する必要がある。alias: gwd='. ~/dotfiles/.bin/gwd.sh'
 
 # -f / --force: worktree に未コミット変更があっても強制削除する明示オプトイン
 force=0
 case "$1" in
   -f|--force) force=1 ;;
   "") ;;
-  *) echo "Usage: gwclean [-f]" >&2; return 1 ;;
+  *) echo "Usage: gwd [-f]" >&2; return 1 ;;
 esac
 
 if ! git rev-parse --git-dir >/dev/null 2>&1; then
@@ -53,7 +53,7 @@ fi
 dirty=0
 [ -n "$(git -C "$cur_wt" status --porcelain 2>/dev/null)" ] && dirty=1
 if [ "$dirty" -eq 1 ] && [ "$force" -eq 0 ]; then
-  echo "Error: Worktree has uncommitted changes. Commit/stash them, or re-run: gwclean -f" >&2
+  echo "Error: Worktree has uncommitted changes. Commit/stash them, or re-run: gwd -f" >&2
   return 1
 fi
 
