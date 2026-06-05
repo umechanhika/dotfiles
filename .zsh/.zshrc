@@ -50,5 +50,31 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 # git completion using zsh built-in
 autoload -Uz compinit && compinit
 
-alias gwc='. $HOME/dotfiles/.bin/gwc.sh'
+# gwc は補完(compdef)を効かせるため alias ではなく関数にする。
+# alias のままだと、既定の NO_COMPLETE_ALIASES 下では補完時に alias が先に展開され、
+# source(.) の引数（ファイル名）補完になって compdef _gwc が無視される。
+# 関数なら compdef がそのまま効き、かつ他の git alias(gc 等)の展開補完にも影響しない。
+# source する点は alias と同じ（cd を現在のシェルに反映させるため必須）。
+gwc() { . "$HOME/dotfiles/.bin/gwc.sh" "$@" }
 alias gwd='. $HOME/dotfiles/.bin/gwd.sh'
+
+# gwc のブランチ名補完（git checkout 相当の DWIM 体験）
+# gwc は `git ...` を実行する関数ではないため git 標準補完が効かない。これを補う。
+# 以下を補完候補に出す:
+# - ローカルブランチ（refs/heads）
+# - origin のリモートブランチ（lstrip=3 で refs/remotes/origin/ を除去し origin/ 前置なしの名前に）
+# origin/HEAD は HEAD になるので除外、ローカル/リモート同名は重複除去。
+# git 管理外では for-each-ref が空を返すため候補ゼロになる（=自然に無効化）。
+_gwc() {
+  local expl
+  local -a branches
+  # git を直接呼ぶ。補完ユーティリティ _call_program は引数を eval するため
+  # --format=%(...) の括弧が glob 展開されて失敗する（候補が空になる）ので使わない。
+  branches=(
+    ${(f)"$(git for-each-ref --format='%(refname:short)' refs/heads 2>/dev/null)"}
+    ${(f)"$(git for-each-ref --format='%(refname:lstrip=3)' refs/remotes/origin 2>/dev/null)"}
+  )
+  branches=(${(u)branches:#HEAD})
+  _wanted branches expl 'branch' compadd -a branches
+}
+compdef _gwc gwc
