@@ -18,6 +18,12 @@ ln -sf ~/dotfiles/.config/.claude/skills ~/.claude/skills
 ln -sf ~/dotfiles/.config/.claude/settings.json ~/.claude/settings.json
 ln -sf ~/dotfiles/.config/.claude/statusline-command.sh ~/.claude/statusline-command.sh
 
+# context-review (セッション終了時のトークン消費レビュー: SessionEnd hook の gate + apply skill)
+# hook は settings.json、skill は skills シンボリックリンク経由で登録済み。
+# gate スクリプト群を ~/.claude/hooks へリンクし、実行権限を付与する。
+ln -sf ~/dotfiles/.config/.claude/hooks ~/.claude/hooks
+chmod +x ~/dotfiles/.config/.claude/hooks/context-review-gate.py
+
 # agent-manager (iTerm2上のClaude Codeセッション状態モニタ)
 # hookはsettings.jsonに登録済み。署名証明書を作成し、署名済み .app をビルドしておく
 # （以降はSessionStart時に自動起動）。証明書作成はloginキーチェーンのパスワードを一度だけ尋ねる。
