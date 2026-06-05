@@ -1,6 +1,6 @@
 #!/bin/sh
 # git worktree create (+ Android Studio launch for Gradle/Flutter projects)
-# NOTE: Must be sourced (`. gwc.sh`) for `cd` to take effect — use the alias: gwc='. ~/dotfiles/.bin/gwc.sh'
+# NOTE: Must be sourced (`. gwc.sh`) for `cd` to take effect — use the wrapper function in .zshrc: gwc() { . ~/dotfiles/.bin/gwc.sh "$@" }
 
 # worktree が Android(Gradle) もしくは Flutter プロジェクトかを判定する。
 # AS 内で作業しないプロジェクトで Studio を起動すると .idea/ 等の不要な
