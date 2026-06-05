@@ -56,7 +56,8 @@ autoload -Uz compinit && compinit
 # 関数なら compdef がそのまま効き、かつ他の git alias(gc 等)の展開補完にも影響しない。
 # source する点は alias と同じ（cd を現在のシェルに反映させるため必須）。
 gwc() { . "$HOME/dotfiles/.bin/gwc.sh" "$@" }
-alias gwd='. $HOME/dotfiles/.bin/gwd.sh'
+# gwd も補完(compdef)を効かせるため関数にする。source する点は alias と同じ。
+gwd() { . "$HOME/dotfiles/.bin/gwd.sh" "$@" }
 
 # gwc のブランチ名補完（git checkout 相当の DWIM 体験）
 # gwc は `git ...` を実行する関数ではないため git 標準補完が効かない。これを補う。
@@ -78,3 +79,13 @@ _gwc() {
   _wanted branches expl 'branch' compadd -a branches
 }
 compdef _gwc gwc
+
+# gwd の worktree パス補完
+# git worktree list --porcelain からパスを取得して候補にする。
+_gwd() {
+  local expl
+  local -a wt_paths
+  wt_paths=(${(f)"$(git worktree list --porcelain 2>/dev/null | awk '/^worktree / { print $2 }')"})
+  _wanted directories expl 'worktree' compadd -a wt_paths
+}
+compdef _gwd gwd
