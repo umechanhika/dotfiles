@@ -77,16 +77,9 @@ if [ "$dirty" -eq 1 ] && [ "$force" -eq 0 ]; then
   return 1
 fi
 
-# 確認プロンプト（1回・デフォルト No）
 echo "Worktree : $target_wt"
 echo "Branch   : $target_branch  (git branch -D)"
 [ "$dirty" -eq 1 ] && echo "WARNING  : uncommitted changes will be lost (--force)"
-printf "Proceed? [y/N] "
-read -r ans
-case "$ans" in
-  y|Y) ;;
-  *) echo "Aborted." >&2; return 1 ;;
-esac
 
 # 自 worktree を削除する場合のみ退避（cwd が消えるため削除前にメイン worktree へ移動）
 if [ "$target_wt" = "$cur_wt" ]; then
