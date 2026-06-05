@@ -136,14 +136,6 @@
             "command": "$HOME/dotfiles/agent-manager/hooks/agent-manager-launch.sh"
           }
         ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "n=$(ls \"$HOME/.claude/context-reviews/pending/\" 2>/dev/null | wc -l | tr -d ' '); r=$(ls .claude/context-reviews/pending/ 2>/dev/null | wc -l | tr -d ' '); t=$((n+r)); [ \"$t\" -gt 0 ] && echo \"context-review: 保留中の改善提案が ${t} 件あります（グローバル ${n} / このリポジトリ ${r}）。'context-review-apply' スキルで確認できます。\" || true"
-          }
-        ]
       }
     ],
     "UserPromptSubmit": [
@@ -204,14 +196,6 @@
           {
             "type": "command",
             "command": "$HOME/dotfiles/agent-manager/hooks/agent-manager-hook.sh"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/context-review-gate.py\""
           }
         ]
       }
