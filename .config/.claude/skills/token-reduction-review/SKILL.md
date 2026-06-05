@@ -2,10 +2,11 @@
 name: token-reduction-review
 description: >-
   現在の Claude Code セッションのトークン消費を解析し、次回以降の消費を恒久的に減らす
-  最も価値の高い改善を最大1件だけ提案する。提案を出力するだけで、適用や他リポジトリへの
-  変更は行わない。セッションを終える前の振り返りに使う。トリガー例:
-  「/token-reduction-review」「このセッションのトークン消費をレビュー」
-  「トークン削減の提案を出して」「セッションを終える前に無駄を点検して」。
+  改善を最大1件だけ提案する（出力のみ・適用や他リポジトリ変更はしない）。
+  セッションを終える前に /token-reduction-review で手動実行する。
+model: haiku
+effort: low
+disable-model-invocation: true
 ---
 
 # Token Reduction Review
@@ -17,7 +18,7 @@ description: >-
 
 1. **ダイジェスト取得**（モデルを使わない決定論的解析）:
    ```bash
-   python3 ~/.claude/skills/token-reduction-review/token-digest.py
+   python3 "${CLAUDE_SKILL_DIR}/token-digest.py"
    ```
    現在のセッションの transcript を自動特定し、digest(JSON) を出力する。主な項目:
    - `peak_context_tokens` 到達した最大コンテキスト / `tool_output_bytes` ツール出力累積 /
