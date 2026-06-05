@@ -122,7 +122,6 @@
       "mcp__claude_ai_Notion__notion-search"
     ]
   },
-  "model": "opus[1m]",
   "hooks": {
     "SessionStart": [
       {
@@ -210,6 +209,6 @@
     "frontend-design@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": true
   },
-  "effortLevel": "xhigh",
+  "effortLevel": "high",
   "theme": "dark"
 }
