@@ -388,10 +388,14 @@ def detect_existing_mechanisms(config_dir, skill_dir):
     return out
 
 
-def load_apply_log(skill_dir):
-    if not skill_dir:
-        return []
-    f = skill_dir / "apply_log.json"
+def apply_log_path():
+    # apply_log は端末ローカル状態（git 非追跡）。~/.claude 直下に置く。
+    # 履歴は端末ごとに異なるため、縦断検証の基準日も端末ローカルであるべき。
+    return Path.home() / ".claude" / "token-reducer" / "apply_log.json"
+
+
+def load_apply_log():
+    f = apply_log_path()
     if f.exists():
         try:
             return json.loads(f.read_text())
@@ -625,6 +629,8 @@ def main():
                     help="プロジェクトディレクトリ名の部分一致で絞り込み")
     ap.add_argument("--split-date", default=None,
                     help="YYYY-MM-DD。適用前後の縦断比較を出力")
+    ap.add_argument("--since-last-apply", action="store_true",
+                    help="ローカル apply_log の最終適用日以降のセッションだけを集計（新規診断用）")
     args = ap.parse_args()
 
     projects_dir = Path(args.projects_dir)
@@ -647,6 +653,12 @@ def main():
     cutoff = None
     if args.since_days is not None:
         cutoff = datetime.now(timezone.utc) - timedelta(days=args.since_days)
+    if args.since_last_apply:
+        dates = [parse_ts(e["date"] + "T00:00:00Z") for e in load_apply_log() if e.get("date")]
+        dates = [d for d in dates if d]
+        if dates:
+            la = max(dates)
+            cutoff = max(cutoff, la) if cutoff else la
 
     sessions = []
     parse_errors = 0
@@ -678,11 +690,12 @@ def main():
             "projects_dir": str(projects_dir),
             "sessions_analyzed": len(sessions),
             "parse_errors": parse_errors,
+            "effective_cutoff": cutoff.isoformat() if cutoff else None,
         },
         "summary": summarize(sessions),
         "signals": build_signals(sessions),
         "existing_mechanisms": detect_existing_mechanisms(config_dir, skill_dir),
-        "apply_log": load_apply_log(skill_dir),
+        "apply_log": load_apply_log(),
     }
 
     if args.split_date:
