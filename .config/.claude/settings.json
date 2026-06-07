@@ -247,5 +247,7 @@
     "swift-lsp@claude-plugins-official": true
   },
   "effortLevel": "high",
-  "theme": "dark"
+  "theme": "dark",
+  "agentPushNotifEnabled": true,
+  "cleanupPeriodDays": 365
 }
