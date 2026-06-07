@@ -28,7 +28,6 @@ Modes
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import sys
@@ -38,6 +37,9 @@ import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Optional
+
+import dr_store
+from dr_util import _content_type_for, _kind_for_ext, _now, default_work_dir
 
 # ---------------------------------------------------------------------------
 # Shared state (populated in run_server)
@@ -50,12 +52,12 @@ TARGET_EXT = ""           # "md" | "markdown" | "html" | "htm"
 LIB_DIR = ""              # absolute path of the bundled lib/ directory
 WORK_DIR = ""             # absolute path of the working dir
 INBOX_PATH = ""           # work-dir/inbox.jsonl  (Monitor trigger)
-THREADS_PATH = ""         # work-dir/threads.json (source of truth)
 
-# In-memory thread store; the server is the only writer. Guarded by _lock.
-STORE = {"rev": 0, "next_id": 1, "threads": []}
-
-_lock = threading.RLock()
+# The thread store (STORE, threads.json path) lives in dr_store; serve.py
+# coordinates with it through dr_store.configure()/load()/save()/etc. The
+# RLock is owned by dr_store and reused here so the Handler, the inbox writer
+# and the batch-id counter all serialise against the same lock instance.
+_lock = dr_store.LOCK
 _batch_seq = 0
 _last_activity = time.time()
 
@@ -65,93 +67,12 @@ def _touch_activity() -> None:
     _last_activity = time.time()
 
 
-def _now() -> str:
-    return time.strftime("%Y-%m-%dT%H:%M:%S")
-
-
 def _next_batch_id() -> str:
     global _batch_seq
     with _lock:
         _batch_seq += 1
         seq = _batch_seq
     return time.strftime("%Y%m%d-%H%M%S") + ("-%03d" % seq)
-
-
-def _kind_for_ext(ext: str) -> str:
-    return "html" if ext in ("html", "htm") else "markdown"
-
-
-def default_work_dir(target_abs: str) -> str:
-    """Per-target working dir OUTSIDE any repo, persistent across sessions."""
-    name = os.path.basename(target_abs)
-    safe = "".join(c if (c.isalnum() or c in "-_.") else "_" for c in name)
-    digest = hashlib.sha1(target_abs.encode("utf-8")).hexdigest()[:16]
-    base = os.path.expanduser("~/.claude/doc-review")
-    return os.path.join(base, "%s-%s" % (safe, digest))
-
-
-# ---------------------------------------------------------------------------
-# Thread store (server-owned)
-# ---------------------------------------------------------------------------
-
-
-def _load_store() -> None:
-    global STORE
-    if os.path.isfile(THREADS_PATH):
-        try:
-            with open(THREADS_PATH, "r", encoding="utf-8") as fh:
-                data = json.load(fh)
-            if isinstance(data, dict) and isinstance(data.get("threads"), list):
-                STORE = {
-                    "rev": int(data.get("rev", 0)),
-                    "next_id": int(data.get("next_id", len(data["threads"]) + 1)),
-                    "threads": data["threads"],
-                }
-                return
-        except (OSError, ValueError):
-            pass
-    STORE = {"rev": 0, "next_id": 1, "threads": []}
-
-
-def _save_store() -> None:
-    # Caller holds _lock. Atomic write via temp + replace.
-    tmp = THREADS_PATH + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(STORE, fh, ensure_ascii=False, indent=2)
-    os.replace(tmp, THREADS_PATH)
-
-
-def _find_thread(thread_id: str):
-    for t in STORE["threads"]:
-        if t.get("id") == thread_id:
-            return t
-    return None
-
-
-def _merge_anchor(anchor: dict, update: dict) -> None:
-    """Apply a Claude-supplied anchor update onto an existing thread anchor.
-
-    The browser re-places each comment marker by matching the anchor's stored
-    *content* (``block_raw`` for markdown, ``text`` / ``selected_text`` for
-    HTML) against the freshly rendered document — never by a positional index,
-    which drifts the instant Claude inserts or removes a block above. So when
-    Claude moves or rewrites the commented region it must hand us the new
-    content, and when it deletes the region it must mark the anchor ``gone``.
-    We touch only the fields Claude sends; supplying any content re-anchors the
-    comment (clears ``gone``). The anchor type (block/range/element) is
-    irrelevant here — we just overlay whatever was provided.
-    """
-    if not isinstance(anchor, dict) or not isinstance(update, dict):
-        return
-    touched = False
-    for key in ("block_raw", "text", "selected_text", "block_index"):
-        if key in update:
-            anchor[key] = update[key]
-            touched = True
-    if update.get("gone"):
-        anchor["gone"] = True
-    elif touched:
-        anchor["gone"] = False
 
 
 # ---------------------------------------------------------------------------
@@ -302,14 +223,15 @@ class Handler(BaseHTTPRequestHandler):
 
     def _serve_threads(self) -> None:
         with _lock:
-            self._send_json({"rev": STORE["rev"], "threads": STORE["threads"]})
+            store = dr_store.store()
+            self._send_json({"rev": store["rev"], "threads": store["threads"]})
 
     def _serve_rev(self) -> None:
         # Lightweight poll target: returns only the revision counter so the
         # browser can cheaply detect changes without transferring every thread
         # (and its full message history) every few seconds.
         with _lock:
-            self._send_json({"rev": STORE["rev"]})
+            self._send_json({"rev": dr_store.store()["rev"]})
 
     # -- POST handlers -----------------------------------------------------
 
@@ -323,13 +245,14 @@ class Handler(BaseHTTPRequestHandler):
 
         inbox_items = []
         with _lock:
+            store = dr_store.store()
             for it in items:
                 text = (it.get("text") or "").strip()
                 if not text:
                     continue
                 tid = it.get("thread_id")
                 if tid:
-                    thread = _find_thread(tid)
+                    thread = dr_store.find_thread(tid)
                     if thread is None:
                         continue
                     thread["messages"].append({"role": "user", "text": text, "ts": _now()})
@@ -340,15 +263,15 @@ class Handler(BaseHTTPRequestHandler):
                     anchor = it.get("anchor")
                     if anchor is None:
                         continue
-                    tid = "t%d" % STORE["next_id"]
-                    STORE["next_id"] += 1
+                    tid = "t%d" % store["next_id"]
+                    store["next_id"] += 1
                     thread = {
                         "id": tid,
                         "anchor": anchor,
                         "status": "open",
                         "messages": [{"role": "user", "text": text, "ts": _now()}],
                     }
-                    STORE["threads"].append(thread)
+                    store["threads"].append(thread)
                     is_new = True
                 inbox_items.append(
                     {"thread_id": tid, "anchor": anchor, "text": text, "is_new": is_new}
@@ -357,10 +280,10 @@ class Handler(BaseHTTPRequestHandler):
             if not inbox_items:
                 return self._send_error_json(400, "no valid items")
 
-            STORE["rev"] += 1
-            _save_store()
-            rev = STORE["rev"]
-            threads_copy = list(STORE["threads"])
+            store["rev"] += 1
+            dr_store.save()
+            rev = store["rev"]
+            threads_copy = list(store["threads"])
 
         batch = {
             "batch_id": _next_batch_id(),
@@ -384,7 +307,8 @@ class Handler(BaseHTTPRequestHandler):
         if not tid or not text:
             return self._send_error_json(400, "thread_id and text required")
         with _lock:
-            thread = _find_thread(tid)
+            store = dr_store.store()
+            thread = dr_store.find_thread(tid)
             if thread is None:
                 return self._send_error_json(404, "thread not found: %s" % tid)
             thread["messages"].append({"role": "claude", "text": text, "ts": _now()})
@@ -395,10 +319,10 @@ class Handler(BaseHTTPRequestHandler):
             # new location instead of losing or misplacing it.
             anchor_update = payload.get("anchor_update")
             if isinstance(anchor_update, dict) and isinstance(thread.get("anchor"), dict):
-                _merge_anchor(thread["anchor"], anchor_update)
-            STORE["rev"] += 1
-            _save_store()
-            rev = STORE["rev"]
+                dr_store.merge_anchor(thread["anchor"], anchor_update)
+            store["rev"] += 1
+            dr_store.save()
+            rev = store["rev"]
         self._send_json({"ok": True, "rev": rev})
 
     def _resolve(self) -> None:
@@ -410,52 +334,20 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_error_json(400, "thread_id required")
         reopen = bool(payload.get("reopen"))
         with _lock:
-            thread = _find_thread(tid)
+            store = dr_store.store()
+            thread = dr_store.find_thread(tid)
             if thread is None:
                 return self._send_error_json(404, "thread not found: %s" % tid)
             thread["status"] = "open" if reopen else "resolved"
-            STORE["rev"] += 1
-            _save_store()
-            rev = STORE["rev"]
+            store["rev"] += 1
+            dr_store.save()
+            rev = store["rev"]
         self._send_json({"ok": True, "rev": rev})
 
 
 # ---------------------------------------------------------------------------
 # File helpers
 # ---------------------------------------------------------------------------
-
-
-def _content_type_for(path: str) -> str:
-    lower = path.lower()
-    if lower.endswith(".html") or lower.endswith(".htm"):
-        return "text/html; charset=utf-8"
-    if lower.endswith(".js"):
-        return "text/javascript; charset=utf-8"
-    if lower.endswith(".css"):
-        return "text/css; charset=utf-8"
-    if lower.endswith(".json"):
-        return "application/json; charset=utf-8"
-    if lower.endswith(".svg"):
-        return "image/svg+xml"
-    if lower.endswith(".png"):
-        return "image/png"
-    if lower.endswith(".jpg") or lower.endswith(".jpeg"):
-        return "image/jpeg"
-    if lower.endswith(".gif"):
-        return "image/gif"
-    if lower.endswith(".webp"):
-        return "image/webp"
-    if lower.endswith(".ico"):
-        return "image/x-icon"
-    if lower.endswith(".woff2"):
-        return "font/woff2"
-    if lower.endswith(".woff"):
-        return "font/woff"
-    if lower.endswith(".ttf"):
-        return "font/ttf"
-    if lower.endswith(".otf"):
-        return "font/otf"
-    return "application/octet-stream"
 
 
 def _append_jsonl(path: str, obj) -> None:
@@ -493,7 +385,7 @@ def _watcher(server: ThreadingHTTPServer, parent_pid: Optional[int], idle_timeou
 
 def run_server(args: argparse.Namespace) -> int:
     global TARGET_PATH, TARGET_NAME, TARGET_DIR, TARGET_EXT, LIB_DIR, WORK_DIR
-    global INBOX_PATH, THREADS_PATH
+    global INBOX_PATH
 
     TARGET_PATH = os.path.realpath(args.target)
     if not os.path.isfile(TARGET_PATH):
@@ -515,8 +407,8 @@ def run_server(args: argparse.Namespace) -> int:
     WORK_DIR = os.path.realpath(os.path.expanduser(work))
     os.makedirs(WORK_DIR, exist_ok=True)
     INBOX_PATH = os.path.join(WORK_DIR, "inbox.jsonl")
-    THREADS_PATH = os.path.join(WORK_DIR, "threads.json")
-    _load_store()  # restore past threads if this file was reviewed before
+    dr_store.configure(os.path.join(WORK_DIR, "threads.json"))
+    dr_store.load()  # restore past threads if this file was reviewed before
 
     # Bind 127.0.0.1 ONLY. Never 0.0.0.0.
     server = None

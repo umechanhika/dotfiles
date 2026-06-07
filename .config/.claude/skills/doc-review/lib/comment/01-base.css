@@ -1,0 +1,103 @@
+:root {
+  --rd-accent: #4a90d9;
+  --rd-accent-d: #2f6fb0;
+  --rd-hover: #4a90d9;
+  --rd-commented: #e8821a;
+  --rd-draft: #8a8f98;
+  --rd-open: #e8821a;
+  --rd-answered: #2f8a3c;
+  --rd-resolved: #b0b4ba;
+  --rd-bg: #ffffff;
+  --rd-fg: #1a1a1a;
+  --rd-page-bg: #f4f5f7;
+  --rd-card-border: #e6e8ec;
+  --rd-code-bg: #f5f7fa;
+  --rd-inline-code-bg: #eef2f6;
+  --rd-target-bg: #eef2f6;
+  --rd-sidebar-bg: #ffffff;
+  --rd-resize-grip: #aab0bb;   /* always-visible drag grip on the sidebar edge */
+  --rd-sidebar-w: 340px;
+  --rd-topbar-h: 48px;
+  --rd-gutter: 26px;   /* horizontal offset of the marker badge from its block */
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Helvetica Neue", sans-serif;
+  color: var(--rd-fg);
+  background: var(--rd-page-bg);
+}
+
+/* ---------- top bar ---------- */
+#rd-topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--rd-topbar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: #1f2430;
+  color: #fff;
+  z-index: 50;
+  font-size: 0.9rem;
+}
+.rd-topbar-left { display: flex; align-items: center; gap: 12px; }
+#rd-filename { font-weight: 600; }
+.rd-status { color: #9fd3ff; font-size: 0.82rem; }
+.rd-hint { color: #b6bcc6; font-size: 0.8rem; }
+
+/* ---------- layout ---------- */
+#rd-main {
+  margin-top: var(--rd-topbar-h);
+  margin-right: var(--rd-sidebar-w);
+  min-height: calc(100vh - var(--rd-topbar-h));
+  padding: 32px 28px;
+  display: flex;
+  justify-content: center;
+}
+#rd-content {
+  background: var(--rd-bg);
+  width: 100%;
+  max-width: 1200px;
+  padding: 48px 56px;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  line-height: 1.75;
+}
+#rd-content img { max-width: 100%; }
+#rd-content pre {
+  background: var(--rd-code-bg);
+  padding: 12px 14px;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+#rd-content code { background: var(--rd-inline-code-bg); padding: 1px 5px; border-radius: 3px; }
+#rd-content pre code { background: none; padding: 0; }
+#rd-content .rd-table-scroll { overflow-x: auto; max-width: 100%; }
+/* keep column widths at their natural content size so narrowing the window
+   scrolls instead of squashing cells */
+#rd-content .rd-table-scroll table { width: max-content; max-width: none; }
+#rd-content table { border-collapse: collapse; }
+#rd-content th, #rd-content td { border: 1px solid #ddd; padding: 6px 10px; }
+#rd-content blockquote { border-left: 4px solid #ddd; margin: 0; padding-left: 16px; color: #555; }
+
+/* ---------- HTML preview iframe ----------
+   HTML targets render here so the file's own <head> CSS applies in an isolated
+   document (no cascade from this chrome). The iframe scrolls internally and has
+   a fixed height so marker coordinates stay stable. We don't style its content
+   — that's the point; we only size/frame the box itself. The hover/marker CSS
+   the content needs is injected INTO the iframe document by comment.js
+   (FRAME_OVERLAY_CSS), since these rules can't cross the iframe boundary. */
+#rd-frame {
+  width: 100%;
+  max-width: 1200px;
+  height: calc(100vh - var(--rd-topbar-h) - 64px);
+  border: 0;
+  background: var(--rd-bg);
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}

@@ -1,0 +1,61 @@
+
+/* ---------- buttons ---------- */
+.rd-btn {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.rd-btn-primary { background: var(--rd-accent); color: #fff; width: 100%; }
+.rd-btn-primary:hover { background: var(--rd-accent-d); }
+.rd-btn-primary:disabled { background: #b9c6d6; cursor: not-allowed; }
+.rd-btn-ghost { background: #fff; border-color: #ccc; color: #444; }
+.rd-btn-ghost:hover { background: #f3f3f3; }
+
+/* ---------- popover ---------- */
+.rd-popover {
+  position: absolute;
+  z-index: 100;
+  width: 300px;
+  background: #fff;
+  border: 1px solid #d4d7dc;
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.18);
+  padding: 12px;
+  opacity: 1; transform: none;
+  transition: opacity .16s ease, transform .16s ease;
+}
+/* Animate show/hide: keep it in the box model while hidden (absolute, so no
+   reflow) and just fade/scale it, instead of a hard display flip. */
+.rd-popover[hidden] {
+  display: block;
+  opacity: 0;
+  transform: scale(.97);
+  pointer-events: none;
+}
+.rd-popover-target {
+  font-size: 0.76rem; color: #555; background: var(--rd-target-bg);
+  border-radius: 4px; padding: 4px 8px; margin-bottom: 8px;
+  max-height: 48px; overflow: hidden;
+}
+.rd-popover textarea {
+  width: 100%; border: 1px solid #ccc; border-radius: 6px;
+  padding: 8px; font-size: 0.9rem; resize: vertical; font-family: inherit;
+}
+.rd-popover-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+.rd-popover-actions .rd-btn { width: auto; }
+
+/* ---------- toast ---------- */
+.rd-toast {
+  position: fixed;
+  bottom: 20px; left: 50%;
+  background: #1f2430; color: #fff;
+  padding: 10px 18px; border-radius: 20px;
+  font-size: 0.85rem; z-index: 200;
+  box-shadow: 0 4px 16px rgba(0,0,0,.25);
+  opacity: 0; pointer-events: none;
+  transform: translateX(-50%) translateY(8px);
+  transition: opacity .25s ease, transform .25s ease;
+}
+.rd-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }

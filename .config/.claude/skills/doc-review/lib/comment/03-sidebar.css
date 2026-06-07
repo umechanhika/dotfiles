@@ -1,0 +1,68 @@
+
+/* ---------- sidebar ---------- */
+#rd-sidebar {
+  position: fixed;
+  top: var(--rd-topbar-h); right: 0; bottom: 0;
+  width: var(--rd-sidebar-w);
+  background: var(--rd-sidebar-bg);
+  border-left: 1px solid #e2e4e8;
+  display: flex;
+  flex-direction: column;
+  z-index: 40;
+}
+/* drag-to-resize handle, pinned just outside the sidebar's left edge. A clearly
+   visible grip pill signals the edge is draggable; it grows + colours on hover/drag. */
+.rd-resize-handle { position: absolute; left: -5px; top: 0; bottom: 0; width: 10px; cursor: col-resize; z-index: 41; }
+.rd-resize-handle::before {
+  content: ""; position: absolute; left: 3px; top: 50%; transform: translateY(-50%);
+  width: 4px; height: 52px; border-radius: 3px; background: var(--rd-resize-grip);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.04);
+  transition: background .15s ease, height .15s ease, width .15s ease;
+}
+.rd-resize-handle:hover::before, body.rd-resizing .rd-resize-handle::before {
+  background: var(--rd-accent); height: 76px; width: 5px;
+}
+body.rd-resizing { user-select: none; cursor: col-resize; }
+body.rd-resizing #rd-sidebar { border-left-color: var(--rd-accent); }
+.rd-sidebar-head { padding: 14px 16px; border-bottom: 1px solid #eee; }
+.rd-sidebar-head h2 { margin: 0; font-size: 1rem; display: flex; align-items: center; gap: 8px; }
+.rd-badge {
+  background: var(--rd-commented); color: #fff;
+  border-radius: 10px; font-size: 0.75rem; padding: 1px 8px;
+}
+.rd-list { flex: 1; overflow-y: auto; padding: 8px 12px; }
+.rd-empty { color: #999; font-size: 0.85rem; text-align: center; margin-top: 40px; }
+
+.rd-item {
+  border: 1px solid #e6e8ec;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: #fcfcfd;
+}
+.rd-item.sent { opacity: 0.55; }
+.rd-item.stale { border-color: #e0a; }
+.rd-item-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.rd-item-num {
+  background: var(--rd-commented); color: #fff;
+  min-width: 20px; height: 20px; border-radius: 10px; padding: 0 6px; box-sizing: border-box;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.72rem; font-weight: 700;
+}
+.rd-item-kind { font-size: 0.72rem; color: #888; }
+.rd-item-del { border: none; background: none; color: #b00; cursor: pointer; font-size: 0.8rem; }
+.rd-item-target {
+  font-size: 0.78rem; color: #555; background: var(--rd-target-bg);
+  border-radius: 4px; padding: 4px 8px; margin-bottom: 6px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* Shown when a comment's anchor can't be placed (region deleted or moved away)
+   — the body has no marker, so the note explains the missing pin. */
+.rd-item-note {
+  font-size: 0.72rem; color: #b06a00; margin-bottom: 6px;
+}
+.rd-item-text { font-size: 0.88rem; white-space: pre-wrap; word-break: break-word; }
+.rd-item-sentnote { font-size: 0.72rem; color: #2f8a3c; margin-top: 6px; }
+
+.rd-sidebar-foot { padding: 12px 16px; border-top: 1px solid #eee; }
+.rd-send-note { font-size: 0.76rem; color: #888; margin: 8px 0 0; min-height: 1em; }
