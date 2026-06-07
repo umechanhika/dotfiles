@@ -5,7 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>doc-review</title>
   <!-- All assets are local. No CDN / external requests. -->
-  <link rel="stylesheet" href="/lib/comment.css">
+  <!-- comment.css split into cohesive feature files; load order reproduces the
+       original cascade exactly (concatenation is byte-identical to the original). -->
+  <link rel="stylesheet" href="/lib/comment/01-base.css">
+  <link rel="stylesheet" href="/lib/comment/02-markers.css">
+  <link rel="stylesheet" href="/lib/comment/03-sidebar.css">
+  <link rel="stylesheet" href="/lib/comment/04-controls.css">
+  <link rel="stylesheet" href="/lib/comment/05-threads.css">
+  <link rel="stylesheet" href="/lib/comment/06-media.css">
   <script src="/lib/marked.min.js"></script>
 </head>
 <body>
@@ -58,7 +65,17 @@
   <!-- Visually hidden live region: announces Claude's updates to assistive tech. -->
   <div id="rd-live" class="rd-sr-only" aria-live="polite" role="status"></div>
 
-  <script src="/lib/comment.js"></script>
+  <!-- comment.js split into cohesive ordered classic scripts (un-wrapped IIFE);
+       concatenation in load order reproduces the original body byte-for-byte.
+       The last segment defines window.ReviewDoc = { start }. -->
+  <script src="/lib/comment/comment.00-core.js"></script>
+  <script src="/lib/comment/comment.01-bootstrap.js"></script>
+  <script src="/lib/comment/comment.02-render.js"></script>
+  <script src="/lib/comment/comment.03-selection.js"></script>
+  <script src="/lib/comment/comment.04-sidebar.js"></script>
+  <script src="/lib/comment/comment.05-markers.js"></script>
+  <script src="/lib/comment/comment.06-server.js"></script>
+  <script src="/lib/comment/comment.07-utils.js"></script>
   <script>
     window.addEventListener("DOMContentLoaded", function () {
       ReviewDoc.start();

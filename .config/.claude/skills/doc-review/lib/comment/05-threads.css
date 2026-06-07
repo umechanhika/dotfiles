@@ -1,0 +1,115 @@
+
+/* ---------- v2: threads / bubbles / status ---------- */
+.rd-item.draft { border-style: dashed; border-color: var(--rd-draft); background: #fbfbfc; }
+.rd-item.thread.status-answered { border-color: #bfe3c6; }
+.rd-item.thread.status-resolved { opacity: 0.7; }
+
+.rd-item-num.draft { background: var(--rd-draft); }
+.rd-item-num.answered { background: var(--rd-answered); }
+
+.rd-item-resolve {
+  border: 1px solid #cdd2d8; background: #fff; color: #555;
+  border-radius: 5px; padding: 2px 10px; font-size: 0.76rem; cursor: pointer;
+}
+.rd-item-resolve:hover { background: #f1f3f5; }
+
+/* marker color by state */
+.rd-marker.draft { background: var(--rd-draft); }
+.rd-marker.answered { background: var(--rd-answered); }
+.rd-commented.draft { outline-color: var(--rd-draft) !important; }
+.rd-commented.answered { outline-color: var(--rd-answered) !important; }
+
+/* message bubbles */
+.rd-bubble {
+  position: relative;
+  border-radius: 8px; padding: 7px 10px; margin: 6px 0;
+  font-size: 0.86rem;
+}
+/* --rd-bubble-bg just holds the bubble background as a variable so the long-text
+   fade gradient below can resolve to the exact colour it sits on (per speaker,
+   light/dark). The appearance is unchanged from the original hard-coded values. */
+.rd-bubble.user   { --rd-bubble-bg: #eef2f6; background: var(--rd-bubble-bg); }
+.rd-bubble.claude { --rd-bubble-bg: #eef7f0; background: var(--rd-bubble-bg); border: 1px solid #cfe7d5; }
+.rd-bubble.draft  { --rd-bubble-bg: #fff7e8; background: var(--rd-bubble-bg); border: 1px dashed #e0b877; }
+.rd-bubble-who { display: block; font-size: 0.68rem; color: #8a8f98; margin-bottom: 2px; }
+.rd-bubble.claude .rd-bubble-who { color: #2f8a3c; font-weight: 700; }
+.rd-bubble-text { word-break: break-word; }
+.rd-bubble-text:not(.rd-md) { white-space: pre-wrap; }   /* plain-text fallback keeps manual line breaks */
+.rd-bubble-del {
+  position: absolute; top: 4px; right: 6px;
+  border: none; background: none; color: #b00; cursor: pointer; font-size: 0.9rem; line-height: 1;
+}
+
+/* ---- markdown rendered inside a comment bubble ---- */
+.rd-md { white-space: normal; font-size: 0.875rem; line-height: 1.55; }
+.rd-md > *:first-child { margin-top: 0; }
+.rd-md > *:last-child  { margin-bottom: 0; }
+.rd-md p  { margin: 0.3em 0; }
+.rd-md ul, .rd-md ol { margin: 0.3em 0; padding-left: 1.3em; }
+.rd-md li { margin: 0.1em 0; }
+.rd-md h1, .rd-md h2, .rd-md h3, .rd-md h4 { line-height: 1.3; margin: 0.5em 0 0.2em; }
+.rd-md h1, .rd-md h2 { font-size: 1.0em; }
+.rd-md h3, .rd-md h4 { font-size: 0.92em; }
+.rd-md blockquote { border-left: 3px solid var(--rd-card-border); margin: 0.3em 0; padding-left: 10px; color: #666; }
+.rd-md a { color: var(--rd-accent); }
+.rd-md pre {
+  background: var(--rd-code-bg); border-radius: 6px;
+  padding: 8px 10px; margin: 0.4em 0; overflow-x: auto;
+}
+.rd-md code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: var(--rd-inline-code-bg); padding: 1px 4px; border-radius: 3px; font-size: 0.82em;
+}
+.rd-md pre code { background: none; padding: 0; }
+
+/* long-text clamp + bottom fade + toggle (expand/collapse is an instant flip) */
+.rd-bubble-text.clamped { max-height: 220px; overflow: hidden; position: relative; }
+.rd-bubble-text.clamped::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 48px;
+  pointer-events: none;                          /* don't steal the last line's clicks/selection */
+  background: linear-gradient(to bottom, rgba(0,0,0,0), var(--rd-bubble-bg));
+}
+.rd-bubble-more {
+  border: none; background: none; color: var(--rd-accent);
+  font-size: 0.76rem; cursor: pointer; padding: 4px 0 0;
+}
+
+/* re-feedback / reply box (Figma-style send button).
+   Empty: a single-line field with the small send button parked at its
+   right-centre. Once there's text (.has-text), the field is input-only and the
+   button drops just below it, right-aligned — out of the way of typing. */
+.rd-reply {
+  position: relative; display: flex; flex-direction: column; align-items: flex-end;
+  gap: 6px; margin-top: 8px;
+}
+.rd-reply-input {
+  width: 100%; box-sizing: border-box;
+  border: 1px solid #ccc; border-radius: 8px; background: var(--rd-bg); color: inherit;
+  resize: none; overflow-y: auto; min-height: 36px; max-height: 180px;
+  padding: 7px 38px 7px 10px;          /* right gutter clears the inside button */
+  font-size: 0.84rem; line-height: 1.5; font-family: inherit;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.rd-reply-input:focus { outline: none; border-color: var(--rd-accent); box-shadow: 0 0 0 2px rgba(74,144,217,.15); }
+.rd-reply.has-text .rd-reply-input { padding-right: 10px; }   /* button has left the field */
+.rd-reply.has-text .rd-reply-send { margin-right: 7px; }      /* match the inside state's 7px right inset */
+.rd-reply-send {
+  width: 22px; height: 22px; border-radius: 50%; border: none;
+  background: var(--rd-accent); color: #fff; cursor: pointer;
+  font-size: 0.72rem; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s ease, transform .1s ease;
+}
+.rd-reply-send:not(:disabled):hover { background: var(--rd-accent-d); }
+.rd-reply-send:not(:disabled):active { transform: translateY(1px); }
+.rd-reply-send:disabled { background: #c3ccd6; cursor: default; }
+/* empty state: float the button inside the field, right edge, vertically centred */
+.rd-reply:not(.has-text) .rd-reply-send {
+  position: absolute; top: 50%; right: 7px; transform: translateY(-50%);
+}
+
+/* resolved group */
+.rd-resolved-group { margin-top: 10px; border-top: 1px dashed #ddd; padding-top: 8px; }
+.rd-resolved-group > summary {
+  cursor: pointer; font-size: 0.82rem; color: #777; padding: 4px 2px; user-select: none;
+}

@@ -1,0 +1,106 @@
+
+/* ---------- jump-to flash (comment <-> body linking) ---------- */
+@keyframes rdflash {
+  0%   { box-shadow: 0 0 0 0 rgba(232,130,26,.55); }
+  100% { box-shadow: 0 0 0 8px rgba(232,130,26,0); }
+}
+.rd-flash { animation: rdflash .85s ease-out; }
+.rd-item { cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
+.rd-item:hover { border-color: var(--rd-commented); }
+/* controls inside a card keep their own cursor (the card itself is the jump target) */
+.rd-item button, .rd-item textarea { cursor: auto; }
+.rd-item button { cursor: pointer; }
+
+/* ---------- buttons: subtle motion ---------- */
+.rd-btn { transition: background .15s ease, transform .1s ease; }
+.rd-btn:active { transform: translateY(1px); }
+
+/* ---------- topbar icon button (sidebar toggle) ---------- */
+.rd-icon-btn {
+  border: 1px solid rgba(255,255,255,.3); background: transparent; color: #fff;
+  border-radius: 6px; width: 32px; height: 30px; font-size: 1rem; cursor: pointer;
+  display: none;            /* shown only on narrow screens (see media query) */
+  align-items: center; justify-content: center; line-height: 1;
+  transition: background .15s ease;
+}
+.rd-icon-btn:hover { background: rgba(255,255,255,.14); }
+
+/* ---------- screen-reader-only live region ---------- */
+.rd-sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ============================================================
+   Accessibility: honor reduced-motion. Transitions/animations are
+   decorative here, so disabling them changes nothing functional.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .rd-popover, .rd-toast, .rd-marker, .rd-commented, .rd-hover,
+  .rd-item, .rd-btn, .rd-icon-btn, #rd-sidebar, .rd-resize-handle::before,
+  .rd-reply, .rd-reply-send { transition: none !important; }
+  .rd-flash { animation: none !important; }
+  html { scroll-behavior: auto; }
+}
+
+/* ============================================================
+   Dark theme — only overrides the :root variables plus a few
+   surfaces that can't be expressed as a single token.
+   ============================================================ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --rd-bg: #1b1e24;
+    --rd-fg: #d8dbe0;
+    --rd-page-bg: #121419;
+    --rd-card-border: #2c313b;
+    --rd-code-bg: #161a20;
+    --rd-inline-code-bg: #262b34;
+    --rd-target-bg: #21262e;
+    --rd-sidebar-bg: #181b21;
+    --rd-resize-grip: #4b525e;
+  }
+  #rd-content { box-shadow: 0 1px 4px rgba(0,0,0,.5); }
+  #rd-frame { box-shadow: 0 1px 4px rgba(0,0,0,.5); }
+  #rd-content code { color: #e6c07b; }
+  #rd-content th, #rd-content td { border-color: #333a45; }
+  #rd-content blockquote { border-left-color: #3a414c; color: #aab1bd; }
+  #rd-sidebar { border-left-color: #2c313b; }
+  .rd-sidebar-head, .rd-sidebar-foot { border-color: #2c313b; }
+  .rd-item { background: #1f242c; border-color: var(--rd-card-border); }
+  .rd-item-target { color: #aab1bd; }
+  .rd-item-note { color: #e0a64d; }
+  .rd-bubble.user   { --rd-bubble-bg: #262b34; }
+  .rd-bubble.claude { --rd-bubble-bg: #1c2a22; border-color: #2f4a39; }
+  .rd-bubble.draft  { --rd-bubble-bg: #2e2a1d; border-color: #5a4d2e; }
+  .rd-md blockquote { color: #aab1bd; }
+  .rd-popover { background: #1f242c; border-color: #333a45; color: var(--rd-fg); }
+  .rd-popover textarea { background: #161a20; color: var(--rd-fg); border-color: #333a45; }
+  .rd-reply-input { background: #161a20; color: var(--rd-fg); border-color: #333a45; }
+  .rd-reply-send:disabled { background: #3a414c; }
+  .rd-btn-ghost { background: #262b34; border-color: #3a414c; color: #d8dbe0; }
+  .rd-btn-ghost:hover { background: #2f343d; }
+  .rd-item-resolve { background: #262b34; border-color: #3a414c; color: #c4c9d2; }
+}
+
+/* ============================================================
+   Responsive: below 880px the sidebar becomes a right-side drawer
+   so the body isn't squeezed. The ☰ button toggles it.
+   ============================================================ */
+@media (max-width: 880px) {
+  #rd-main { margin-right: 0; }
+  #rd-content { padding: 32px 22px; }
+  #rd-frame { max-width: none; }
+  .rd-icon-btn { display: inline-flex; }
+  .rd-hint { display: none; }
+  #rd-sidebar {
+    transform: translateX(100%);
+    transition: transform .22s ease;
+    box-shadow: -4px 0 18px rgba(0,0,0,.18);
+  }
+  #rd-sidebar.open { transform: translateX(0); }
+  /* sidebar is a full-height drawer here, not docked — resizing makes no sense */
+  .rd-resize-handle { display: none; }
+  /* keep marker badges inside the (now narrower) content card */
+  :root { --rd-gutter: -6px; }   /* negative gutter => marker sits just inside the left edge */
+  .rd-marker { top: -8px; }
+}
