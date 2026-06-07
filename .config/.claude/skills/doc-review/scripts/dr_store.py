@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import os
 import threading
+import time
 
 # ---------------------------------------------------------------------------
 # Module-level state (moved from serve.py). serve.py sets THREADS_PATH via
@@ -34,6 +35,25 @@ THREADS_PATH = ""  # work-dir/threads.json (source of truth)
 STORE = {"rev": 0, "next_id": 1, "threads": []}
 
 LOCK = threading.RLock()
+
+# Batch-id counter (moved from serve.py). Serialised against LOCK so the
+# inbox writer, the Handler and the counter all share one lock instance.
+_batch_seq = 0
+
+
+def next_batch_id() -> str:
+    global _batch_seq
+    with LOCK:
+        _batch_seq += 1
+        seq = _batch_seq
+    return time.strftime("%Y%m%d-%H%M%S") + ("-%03d" % seq)
+
+
+def append_jsonl(path: str, obj) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with LOCK:
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(obj, ensure_ascii=False) + "\n")
 
 
 def configure(store_path: str) -> None:

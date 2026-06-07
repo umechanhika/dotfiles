@@ -33,54 +33,35 @@ import os
 import sys
 import threading
 import time
-import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Optional
 
+import dr_config
 import dr_store
-from dr_util import _content_type_for, _kind_for_ext, _now, default_work_dir
+from dr_routes_get import GetRoutes
+from dr_routes_post import PostRoutes
+from dr_util import default_work_dir
 
-# ---------------------------------------------------------------------------
-# Shared state (populated in run_server)
-# ---------------------------------------------------------------------------
-
-TARGET_PATH = ""          # absolute path of the single file under review
-TARGET_NAME = ""          # basename
-TARGET_DIR = ""           # directory holding the target (for /raw relative assets)
-TARGET_EXT = ""           # "md" | "markdown" | "html" | "htm"
-LIB_DIR = ""              # absolute path of the bundled lib/ directory
-WORK_DIR = ""             # absolute path of the working dir
-INBOX_PATH = ""           # work-dir/inbox.jsonl  (Monitor trigger)
-
-# The thread store (STORE, threads.json path) lives in dr_store; serve.py
-# coordinates with it through dr_store.configure()/load()/save()/etc. The
-# RLock is owned by dr_store and reused here so the Handler, the inbox writer
-# and the batch-id counter all serialise against the same lock instance.
-_lock = dr_store.LOCK
-_batch_seq = 0
-_last_activity = time.time()
-
-
-def _touch_activity() -> None:
-    global _last_activity
-    _last_activity = time.time()
-
-
-def _next_batch_id() -> str:
-    global _batch_seq
-    with _lock:
-        _batch_seq += 1
-        seq = _batch_seq
-    return time.strftime("%Y%m%d-%H%M%S") + ("-%03d" % seq)
-
+# The runtime server config + activity state live in dr_config; the thread
+# store (STORE, threads.json path) + inbox writer + batch-id counter live in
+# dr_store. serve.py coordinates with them through their configure()/accessor
+# functions. The RLock is owned by dr_store and reused by every module so the
+# Handler, the inbox writer and the batch-id counter all serialise against the
+# same lock instance.
 
 # ---------------------------------------------------------------------------
 # HTTP handler
+#
+# Route logic is split into mixins: GetRoutes (do_GET + GET handlers) and
+# PostRoutes (do_POST + POST handlers). MRO is
+# Handler(GetRoutes, PostRoutes, BaseHTTPRequestHandler); only do_GET/do_POST
+# override BaseHTTPRequestHandler. Handler itself keeps just the response
+# helpers, which the mixins call via self.* (resolved through the MRO).
 # ---------------------------------------------------------------------------
 
 
-class Handler(BaseHTTPRequestHandler):
+class Handler(GetRoutes, PostRoutes, BaseHTTPRequestHandler):
     server_version = "doc-review/2.0"
 
     def log_message(self, fmt: str, *args) -> None:  # noqa: A003
@@ -121,241 +102,6 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, UnicodeDecodeError):
             return None
 
-    # -- routing -----------------------------------------------------------
-
-    def do_GET(self) -> None:  # noqa: N802
-        _touch_activity()
-        path = self.path.split("?", 1)[0]
-        if path == "/" or path == "/index.html":
-            return self._serve_lib_file("viewer.html")
-        if path.startswith("/lib/"):
-            return self._serve_lib_file(path[len("/lib/"):])
-        if path == "/raw" or path.startswith("/raw/"):
-            return self._serve_raw(path)
-        if path == "/source":
-            return self._serve_source()
-        if path == "/threads":
-            return self._serve_threads()
-        if path == "/rev":
-            return self._serve_rev()
-        if path == "/favicon.ico":
-            return self._send_bytes(b"", "image/x-icon", status=204)
-        return self._send_error_json(404, "not found")
-
-    def do_POST(self) -> None:  # noqa: N802
-        _touch_activity()
-        path = self.path.split("?", 1)[0]
-        if path == "/threads/submit":
-            return self._submit()
-        if path == "/threads/reply":
-            return self._reply()
-        if path == "/threads/resolve":
-            return self._resolve()
-        return self._send_error_json(404, "not found")
-
-    # -- GET handlers ------------------------------------------------------
-
-    def _serve_lib_file(self, rel: str) -> None:
-        safe = os.path.normpath(rel).lstrip("/")
-        full = os.path.realpath(os.path.join(LIB_DIR, safe))
-        lib_root = os.path.realpath(LIB_DIR)
-        if not (full == lib_root or full.startswith(lib_root + os.sep)):
-            return self._send_error_json(403, "forbidden")
-        if not os.path.isfile(full):
-            return self._send_error_json(404, "not found")
-        try:
-            with open(full, "rb") as fh:
-                data = fh.read()
-        except OSError:
-            return self._send_error_json(404, "not found")
-        self._send_bytes(data, _content_type_for(full))
-
-    def _serve_raw(self, path: str) -> None:
-        # Serves the target file (and assets sitting next to it) so an iframe can
-        # render the HTML as its own document — head <style>/<link> intact and no
-        # cascade from the viewer chrome. The iframe loads "/raw/" (trailing
-        # slash) so the document's base URL is /raw/ and its relative href/src
-        # resolve to "/raw/<rel>", handled here.
-        rel = path[len("/raw"):]  # "" | "/" | "/sub/asset.css"
-        if rel in ("", "/"):
-            # The document itself.
-            try:
-                with open(TARGET_PATH, "rb") as fh:
-                    data = fh.read()
-            except OSError as exc:
-                return self._send_error_json(500, "cannot read source: %s" % exc)
-            return self._send_bytes(data, _content_type_for(TARGET_PATH))
-
-        # A sibling asset, resolved relative to the target's directory. Guard
-        # against path traversal the same way _serve_lib_file does: the resolved
-        # realpath must stay inside TARGET_DIR.
-        safe = os.path.normpath(urllib.parse.unquote(rel.lstrip("/")))
-        full = os.path.realpath(os.path.join(TARGET_DIR, safe))
-        root = os.path.realpath(TARGET_DIR)
-        if not (full == root or full.startswith(root + os.sep)):
-            return self._send_error_json(403, "forbidden")
-        if not os.path.isfile(full):
-            return self._send_error_json(404, "not found")
-        try:
-            with open(full, "rb") as fh:
-                data = fh.read()
-        except OSError:
-            return self._send_error_json(404, "not found")
-        self._send_bytes(data, _content_type_for(full))
-
-    def _serve_source(self) -> None:
-        try:
-            with open(TARGET_PATH, "r", encoding="utf-8") as fh:
-                content = fh.read()
-            mtime = os.path.getmtime(TARGET_PATH)
-        except OSError as exc:
-            return self._send_error_json(500, "cannot read source: %s" % exc)
-        self._send_json(
-            {
-                "name": TARGET_NAME,
-                "path": TARGET_PATH,
-                "ext": TARGET_EXT,
-                "kind": _kind_for_ext(TARGET_EXT),
-                "mtime": mtime,
-                "content": content,
-            }
-        )
-
-    def _serve_threads(self) -> None:
-        with _lock:
-            store = dr_store.store()
-            self._send_json({"rev": store["rev"], "threads": store["threads"]})
-
-    def _serve_rev(self) -> None:
-        # Lightweight poll target: returns only the revision counter so the
-        # browser can cheaply detect changes without transferring every thread
-        # (and its full message history) every few seconds.
-        with _lock:
-            self._send_json({"rev": dr_store.store()["rev"]})
-
-    # -- POST handlers -----------------------------------------------------
-
-    def _submit(self) -> None:
-        payload = self._read_body()
-        if payload is None:
-            return self._send_error_json(400, "invalid JSON")
-        items = payload.get("items")
-        if not isinstance(items, list) or not items:
-            return self._send_error_json(400, "no items")
-
-        inbox_items = []
-        with _lock:
-            store = dr_store.store()
-            for it in items:
-                text = (it.get("text") or "").strip()
-                if not text:
-                    continue
-                tid = it.get("thread_id")
-                if tid:
-                    thread = dr_store.find_thread(tid)
-                    if thread is None:
-                        continue
-                    thread["messages"].append({"role": "user", "text": text, "ts": _now()})
-                    thread["status"] = "open"
-                    anchor = thread.get("anchor")
-                    is_new = False
-                else:
-                    anchor = it.get("anchor")
-                    if anchor is None:
-                        continue
-                    tid = "t%d" % store["next_id"]
-                    store["next_id"] += 1
-                    thread = {
-                        "id": tid,
-                        "anchor": anchor,
-                        "status": "open",
-                        "messages": [{"role": "user", "text": text, "ts": _now()}],
-                    }
-                    store["threads"].append(thread)
-                    is_new = True
-                inbox_items.append(
-                    {"thread_id": tid, "anchor": anchor, "text": text, "is_new": is_new}
-                )
-
-            if not inbox_items:
-                return self._send_error_json(400, "no valid items")
-
-            store["rev"] += 1
-            dr_store.save()
-            rev = store["rev"]
-            threads_copy = list(store["threads"])
-
-        batch = {
-            "batch_id": _next_batch_id(),
-            "ts": _now(),
-            "target": TARGET_PATH,
-            "work_dir": WORK_DIR,
-            "items": inbox_items,
-        }
-        try:
-            _append_jsonl(INBOX_PATH, batch)
-        except OSError as exc:
-            return self._send_error_json(500, "cannot write inbox: %s" % exc)
-        self._send_json({"ok": True, "batch_id": batch["batch_id"], "rev": rev, "threads": threads_copy})
-
-    def _reply(self) -> None:
-        payload = self._read_body()
-        if payload is None:
-            return self._send_error_json(400, "invalid JSON")
-        tid = payload.get("thread_id")
-        text = (payload.get("text") or "").strip()
-        if not tid or not text:
-            return self._send_error_json(400, "thread_id and text required")
-        with _lock:
-            store = dr_store.store()
-            thread = dr_store.find_thread(tid)
-            if thread is None:
-                return self._send_error_json(404, "thread not found: %s" % tid)
-            thread["messages"].append({"role": "claude", "text": text, "ts": _now()})
-            if thread.get("status") != "resolved":
-                thread["status"] = "answered"
-            # Optional: re-point (or retire) this comment's anchor to match the
-            # edit Claude just made, so the browser can place the marker on the
-            # new location instead of losing or misplacing it.
-            anchor_update = payload.get("anchor_update")
-            if isinstance(anchor_update, dict) and isinstance(thread.get("anchor"), dict):
-                dr_store.merge_anchor(thread["anchor"], anchor_update)
-            store["rev"] += 1
-            dr_store.save()
-            rev = store["rev"]
-        self._send_json({"ok": True, "rev": rev})
-
-    def _resolve(self) -> None:
-        payload = self._read_body()
-        if payload is None:
-            return self._send_error_json(400, "invalid JSON")
-        tid = payload.get("thread_id")
-        if not tid:
-            return self._send_error_json(400, "thread_id required")
-        reopen = bool(payload.get("reopen"))
-        with _lock:
-            store = dr_store.store()
-            thread = dr_store.find_thread(tid)
-            if thread is None:
-                return self._send_error_json(404, "thread not found: %s" % tid)
-            thread["status"] = "open" if reopen else "resolved"
-            store["rev"] += 1
-            dr_store.save()
-            rev = store["rev"]
-        self._send_json({"ok": True, "rev": rev})
-
-
-# ---------------------------------------------------------------------------
-# File helpers
-# ---------------------------------------------------------------------------
-
-
-def _append_jsonl(path: str, obj) -> None:
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with _lock:
-        with open(path, "a", encoding="utf-8") as fh:
-            fh.write(json.dumps(obj, ensure_ascii=False) + "\n")
-
 
 # ---------------------------------------------------------------------------
 # Lifecycle watcher (parent death + idle timeout)
@@ -372,7 +118,7 @@ def _watcher(server: ThreadingHTTPServer, parent_pid: Optional[int], idle_timeou
                 sys.stderr.write("[doc-review] parent process gone; shutting down\n")
                 server.shutdown()
                 return
-        if idle_timeout > 0 and (time.time() - _last_activity) > idle_timeout:
+        if idle_timeout > 0 and (time.time() - dr_config.last_activity()) > idle_timeout:
             sys.stderr.write("[doc-review] idle timeout; shutting down\n")
             server.shutdown()
             return
@@ -384,30 +130,39 @@ def _watcher(server: ThreadingHTTPServer, parent_pid: Optional[int], idle_timeou
 
 
 def run_server(args: argparse.Namespace) -> int:
-    global TARGET_PATH, TARGET_NAME, TARGET_DIR, TARGET_EXT, LIB_DIR, WORK_DIR
-    global INBOX_PATH
-
-    TARGET_PATH = os.path.realpath(args.target)
-    if not os.path.isfile(TARGET_PATH):
-        sys.stderr.write("error: target not found: %s\n" % TARGET_PATH)
+    target_path = os.path.realpath(args.target)
+    if not os.path.isfile(target_path):
+        sys.stderr.write("error: target not found: %s\n" % target_path)
         return 2
-    TARGET_NAME = os.path.basename(TARGET_PATH)
-    TARGET_DIR = os.path.dirname(TARGET_PATH)
-    TARGET_EXT = TARGET_NAME.rsplit(".", 1)[-1].lower() if "." in TARGET_NAME else ""
-    if TARGET_EXT not in ("md", "markdown", "html", "htm"):
-        sys.stderr.write("error: unsupported file type '.%s' (md/html only)\n" % TARGET_EXT)
+    target_name = os.path.basename(target_path)
+    target_dir = os.path.dirname(target_path)
+    target_ext = target_name.rsplit(".", 1)[-1].lower() if "." in target_name else ""
+    if target_ext not in ("md", "markdown", "html", "htm"):
+        sys.stderr.write("error: unsupported file type '.%s' (md/html only)\n" % target_ext)
         return 2
 
-    LIB_DIR = os.path.realpath(os.path.join(args.skill_dir, "lib"))
-    if not os.path.isdir(LIB_DIR):
-        sys.stderr.write("error: lib dir not found: %s\n" % LIB_DIR)
+    lib_dir = os.path.realpath(os.path.join(args.skill_dir, "lib"))
+    if not os.path.isdir(lib_dir):
+        sys.stderr.write("error: lib dir not found: %s\n" % lib_dir)
         return 2
 
-    work = args.work_dir if args.work_dir else default_work_dir(TARGET_PATH)
-    WORK_DIR = os.path.realpath(os.path.expanduser(work))
-    os.makedirs(WORK_DIR, exist_ok=True)
-    INBOX_PATH = os.path.join(WORK_DIR, "inbox.jsonl")
-    dr_store.configure(os.path.join(WORK_DIR, "threads.json"))
+    work = args.work_dir if args.work_dir else default_work_dir(target_path)
+    work_dir = os.path.realpath(os.path.expanduser(work))
+    os.makedirs(work_dir, exist_ok=True)
+    inbox_path = os.path.join(work_dir, "inbox.jsonl")
+
+    # Publish runtime config so the route mixins (dr_routes_get/post) can read
+    # it via dr_config.* without importing serve.py (which would be circular).
+    dr_config.configure(
+        TARGET_PATH=target_path,
+        TARGET_NAME=target_name,
+        TARGET_DIR=target_dir,
+        TARGET_EXT=target_ext,
+        LIB_DIR=lib_dir,
+        WORK_DIR=work_dir,
+        INBOX_PATH=inbox_path,
+    )
+    dr_store.configure(os.path.join(work_dir, "threads.json"))
     dr_store.load()  # restore past threads if this file was reviewed before
 
     # Bind 127.0.0.1 ONLY. Never 0.0.0.0.
@@ -434,15 +189,15 @@ def run_server(args: argparse.Namespace) -> int:
 
     url = "http://127.0.0.1:%d/" % chosen_port
     try:
-        with open(os.path.join(WORK_DIR, "server.url"), "w", encoding="utf-8") as fh:
+        with open(os.path.join(work_dir, "server.url"), "w", encoding="utf-8") as fh:
             fh.write(url)
-        with open(os.path.join(WORK_DIR, "server.pid"), "w", encoding="utf-8") as fh:
+        with open(os.path.join(work_dir, "server.pid"), "w", encoding="utf-8") as fh:
             fh.write(str(os.getpid()))
     except OSError:
         pass
     sys.stdout.write("SERVE_URL=%s\n" % url)
-    sys.stdout.write("WORK_DIR=%s\n" % WORK_DIR)
-    sys.stdout.write("INBOX=%s\n" % INBOX_PATH)
+    sys.stdout.write("WORK_DIR=%s\n" % work_dir)
+    sys.stdout.write("INBOX=%s\n" % inbox_path)
     sys.stdout.flush()
 
     try:
