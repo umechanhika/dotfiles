@@ -201,6 +201,20 @@ PR 肢（選択肢 1）の出し分け:
 
 承認（選択肢 1 または 2）が得られたら、まず commit し、続けて publish.sh で push（と PR）を行う。
 
+#### 6-0. ワークツリー環境でのブランチ確認（ワークツリーセッションのみ）
+
+コミット実行前に、現在のパスが git worktree であり、かつ割り当てブランチと現在ブランチが一致するかを確認する。
+
+```bash
+git worktree list --porcelain && echo "---" && git branch --show-current
+```
+
+1. `worktree` 行のパスと `$PWD` を照合し、現在のパスがワークツリーか判定する。
+2. ワークツリーの場合、対応する `branch refs/heads/<X>` の `<X>` と `git branch --show-current` の出力が一致するか確認する。
+3. **一致しない場合は中断**し、次の報告文を提示する：
+   > 「このワークツリー (`<path>`) は `<expected-branch>` ブランチに割り当てられていますが、現在 `<current-branch>` にいます。`git checkout <expected-branch>` で正しいブランチに切り替えてから再実行してください。」
+4. メインリポジトリのパス（`main worktree`）に該当する場合はスキップして 6-1 に進む。
+
 #### 6-1. commit
 
 システムプロンプトの git commit 規約に従って commit する。要点のみ再掲：
