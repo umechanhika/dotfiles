@@ -52,6 +52,7 @@ scout → deep-read（段階2への遅延詳細化）で進める。
 | 12 | 検証可能なゴール未設定 | 候補セッションのプロンプトを精読判定 |
 | 13 | スキル/サブエージェントの決定論的手続きが未スクリプト化 | `existing_mechanisms.skills`（`scriptable_candidate: true`。最終判定は SKILL.md 本文を精読） |
 | 14 | skill/script ソースが過大（モジュール未分割） | `signals.large_skill_sources`（`threshold_chars` 超の `*.js`/`*.py`/`*.css`。`*.min.js` 除外） |
+| 15 | SKILL.md / 参照ファイルのコア作業外冗長記述 | `existing_mechanisms.skills`（`skill_md_lines` 大 または `other_md_files` 合算行数大 → SKILL.md・参照ファイル精読判定） |
 
 ## 改善案は必ず「仕組み」に変換する
 
@@ -66,6 +67,7 @@ scout → deep-read（段階2への遅延詳細化）で進める。
 - **LSP プラグイン**：typed 言語で grep+複数読み → go-to-definition に置換。
 - **スクリプト（観点13）**：決定論的手続き（＝同入力で出力一意：集計/パース/整形/カウント/機械変換）を LLM から切り出す。非決定（判断/評価/設計/NL生成）は LLM が担う。**反復・常設のものだけ対象**（単発はスクリプト化しない）。既存実例は `token-audit.py`。
 - **モジュール分割（観点14）**：過大な skill/script ソースを責務別に分割し、各 skill に**モジュールマップ（責務→ファイル）を併設**（マップが無いと全モジュール読みに戻り削減が消える＝分割とマップは常にセット）。Read 横取り hook（再読抑制）は edit 後の stale/正当な再読を誤爆し correctness を損なうため**採らない**。
+- **SKILL.md 本文スリム化（観点15）**：スキル呼び出しのたびにロードされるのに実行に不要なセクション（背景説明・経緯・meta コメント等）を削除するか、段階2でのみ読む `reference.md` 等へ分離する。
 
 行動でしか直せない観点（モデル選択・プランモード）も、可能な限り SessionStart hook での注意喚起や
 statusline 表示で**仕組みに寄せる**。寄せられないものは「**仕組み化不可・行動依存**」と明示して区別する。

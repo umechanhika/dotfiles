@@ -57,6 +57,14 @@ def skill_scriptability(skill_dir):
     script_files = []
     if scripts_dir.is_dir():
         script_files = sorted(p.name for p in scripts_dir.iterdir() if p.is_file())
+    other_md = []
+    for f in sorted(skill_dir.glob("*.md")):
+        if f.name != "SKILL.md":
+            try:
+                lines = len(f.read_text(encoding="utf-8").splitlines())
+            except Exception:
+                lines = None
+            other_md.append({"name": f.name, "lines": lines})
     markers = [m for m in MECHANICAL_MARKERS if m in text]
     return {
         "name": name,
@@ -66,6 +74,8 @@ def skill_scriptability(skill_dir):
         "mechanical_markers": markers,
         # 機械的手順を述べているのにスクリプトが無い＝スクリプト化候補（要 LLM 判定）
         "scriptable_candidate": bool(markers) and not script_files,
+        # SKILL.md 以外の参照 .md ファイル（観点15：コア作業外冗長記述の検出用）
+        "other_md_files": other_md,
     }
 
 
