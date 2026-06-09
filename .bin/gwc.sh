@@ -24,6 +24,12 @@ fi
 echo "Fetching..."
 git -C "$main_repo" fetch -p
 
+# 手動削除（rm 等）でディレクトリだけ消えた stale なワークツリー登録を除去する。
+# これを行わないと、登録だけ残ったワークツリーに該当ブランチが「チェックアウト済み」
+# 扱いとなり、後続の worktree add が全経路失敗する。prune は実在しないディレクトリの
+# 登録のみを対象とし、有効なワークツリーには影響しない。
+git -C "$main_repo" worktree prune
+
 branch="$1"
 if [ -z "$branch" ]; then
   if ! command -v fzf >/dev/null 2>&1; then
