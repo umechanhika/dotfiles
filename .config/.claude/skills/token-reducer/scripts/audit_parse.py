@@ -43,6 +43,7 @@ def parse_session(path):
     id_to_path = {}                # tool_use_id -> file_path (Read)
     id_to_ranged = {}              # tool_use_id -> bool (offset/limit 指定あり)
     last_model = None
+    last_user_had_command = False  # 直前 user メッセージが <command-name> タグを持つ（名前指定）
 
     with open(path, "r", errors="ignore") as f:
         for line in f:
@@ -98,8 +99,11 @@ def parse_session(path):
                     elif name in ("Edit", "Write", "NotebookEdit"):
                         s["edit_calls"] += 1
                     elif name == "Skill":
-                        s["skill_calls"].append(
-                            {"skill": inp_obj.get("skill"), "model": last_model})
+                        s["skill_calls"].append({
+                            "skill": inp_obj.get("skill"),
+                            "model": last_model,
+                            "triggered_by_name": last_user_had_command,
+                        })
                     if tid:
                         id_to_name[tid] = name
                         if name == "Read":
@@ -111,11 +115,16 @@ def parse_session(path):
 
             elif role == "user":
                 content = msg.get("content")
+                # 名前指定（スラッシュコマンド UI）の検出: <command-name> タグの存在を確認
+                raw = content if isinstance(content, str) else human_text(content)
+                if "<command-name>" in (raw or ""):
+                    last_user_had_command = True
                 # 人間プロンプト（tool_result でない user メッセージ）を収集
                 if isinstance(content, str):
                     txt = content.strip()
                     if txt and not txt.startswith("<") and not looks_injected(txt):
                         s["human_prompts"].append(txt)
+                        last_user_had_command = False  # 通常テキストは名前指定ではない
                 has_tool_result = False
                 for b in (content or []):
                     if not isinstance(b, dict):
@@ -124,6 +133,7 @@ def parse_session(path):
                         t = human_text([b]).strip()
                         if t and not t.startswith("<") and not looks_injected(t):
                             s["human_prompts"].append(t)
+                            last_user_had_command = False  # 通常テキストは名前指定ではない
                     if b.get("type") == "tool_result":
                         has_tool_result = True
                         size = block_len(b.get("content"))
