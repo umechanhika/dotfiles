@@ -5,6 +5,7 @@
 """
 
 import re
+from collections import defaultdict
 from pathlib import Path
 
 from audit_common import (
@@ -112,6 +113,61 @@ def build_signals(sessions, skills_root=None):
         for sk in s["skill_calls"]:
             skill_runs.append({"session": s["session_id"], **sk})
     sig["skill_invocations"] = {"runs": skill_runs, "applies": bool(skill_runs)}
+
+    # 観点16: 全呼び出しが名前指定（/skill-name） → description の自然言語トリガー文が不要。
+    DESCRIPTION_CHARS_THRESHOLD = 80
+    desc_chars: dict = {}
+    if skills_root:
+        for skill_dir in Path(skills_root).iterdir():
+            md = skill_dir / "SKILL.md"
+            if not md.exists():
+                continue
+            try:
+                text = md.read_text(encoding="utf-8")
+            except Exception:
+                continue
+            fm_match = re.match(r'^---\n(.*?)\n---', text, re.DOTALL)
+            if not fm_match:
+                continue
+            desc_lines = []
+            in_desc = False
+            for line in fm_match.group(1).splitlines():
+                if re.match(r'^description\s*:', line):
+                    in_desc = True
+                    rest = re.sub(r'^description\s*:\s*', '', line).strip().lstrip('>-').strip()
+                    if rest:
+                        desc_lines.append(rest)
+                elif in_desc and (line.startswith(' ') or line.startswith('\t')):
+                    desc_lines.append(line.strip())
+                else:
+                    in_desc = False
+            desc_chars[skill_dir.name] = sum(len(l) for l in desc_lines)
+
+    runs_by_skill: dict = defaultdict(list)
+    for r in skill_runs:
+        if r.get("skill"):
+            runs_by_skill[r["skill"]].append(r)
+
+    name_only_candidates = []
+    for skill_name, runs in runs_by_skill.items():
+        if len(runs) < 2:
+            continue
+        by_name_count = sum(1 for r in runs if r.get("triggered_by_name"))
+        total = len(runs)
+        if by_name_count * 2 > total and desc_chars.get(skill_name, 0) > DESCRIPTION_CHARS_THRESHOLD:
+            name_only_candidates.append({
+                "skill": skill_name,
+                "invocations": total,
+                "by_name_count": by_name_count,
+                "by_name_pct": round(by_name_count / total * 100),
+                "description_chars": desc_chars.get(skill_name, 0),
+            })
+    sig["name_only_invocations"] = {
+        "note": "名前指定率が高いスキルは description のトリガー文が冗長な可能性。"
+                "ただし削除すると Claude の自律提案も失われるため、削除前に自律提案が不要かを確認する（確証レベル B）。",
+        "candidates": sorted(name_only_candidates, key=lambda x: -x["by_name_pct"]),
+        "applies": bool(name_only_candidates),
+    }
 
     # 観点3: MCP 使用（CLI 代替可能性フラグ付き）。
     mcp_total = {}
