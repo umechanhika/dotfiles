@@ -267,5 +267,6 @@
   },
   "effortLevel": "high",
   "theme": "dark",
-  "agentPushNotifEnabled": true
+  "agentPushNotifEnabled": true,
+  "model": "opusplan"
 }
