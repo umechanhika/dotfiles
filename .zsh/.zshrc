@@ -46,6 +46,7 @@ PROMPT='%1~ %F{green}${vcs_info_msg_0_}%f $ '
 
 # homebrew
 eval "$(/opt/homebrew/bin/brew shellenv)"
+export PATH="/opt/homebrew/opt/python@3.14/libexec/bin:$PATH"
 
 # git completion using zsh built-in
 autoload -Uz compinit && compinit

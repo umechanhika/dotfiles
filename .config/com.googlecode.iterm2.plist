@@ -24,6 +24,8 @@
 	<integer>128000</integer>
 	<key>AitermURL</key>
 	<string>https://api.openai.com/v1/responses</string>
+	<key>AllowClipboardAccess</key>
+	<true/>
 	<key>Default Bookmark Guid</key>
 	<string>8C99A624-56E4-4FB1-B62D-5EA78CC5B036</string>
 	<key>HapticFeedbackForEsc</key>
