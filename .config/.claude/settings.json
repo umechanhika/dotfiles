@@ -183,11 +183,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/dotfiles/agent-manager/hooks/agent-manager-hook.sh"
+            "command": "$HOME/agent-manager/hooks/agent-manager-hook.sh"
           },
           {
             "type": "command",
-            "command": "$HOME/dotfiles/agent-manager/hooks/agent-manager-launch.sh"
+            "command": "$HOME/agent-manager/hooks/agent-manager-launch.sh"
           }
         ]
       }
@@ -197,7 +197,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/dotfiles/agent-manager/hooks/agent-manager-hook.sh"
+            "command": "$HOME/agent-manager/hooks/agent-manager-hook.sh"
           }
         ]
       }
@@ -208,7 +208,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/dotfiles/agent-manager/hooks/agent-manager-hook.sh"
+            "command": "$HOME/agent-manager/hooks/agent-manager-hook.sh"
           }
         ]
       }
@@ -219,7 +219,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/dotfiles/agent-manager/hooks/agent-manager-hook.sh"
+            "command": "$HOME/agent-manager/hooks/agent-manager-hook.sh"
           }
         ]
       }
@@ -229,7 +229,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/dotfiles/agent-manager/hooks/agent-manager-hook.sh"
+            "command": "$HOME/agent-manager/hooks/agent-manager-hook.sh"
           }
         ]
       }
@@ -239,7 +239,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/dotfiles/agent-manager/hooks/agent-manager-hook.sh"
+            "command": "$HOME/agent-manager/hooks/agent-manager-hook.sh"
           }
         ]
       }
@@ -249,7 +249,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/dotfiles/agent-manager/hooks/agent-manager-hook.sh"
+            "command": "$HOME/agent-manager/hooks/agent-manager-hook.sh"
           }
         ]
       }

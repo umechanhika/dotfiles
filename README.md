@@ -86,6 +86,10 @@
 - Clone this repository.
 - Run `sh ~/dotfiles/.bin/install.sh`
 
+install.sh は以下のツールを自動でクローン・ビルドする:
+- [agent-manager](https://github.com/umechanhika/agent-manager) → `~/agent-manager`
+- [window-snap](https://github.com/umechanhika/window-snap) → `~/window-snap`
+
 ## 🪛ツール類のセットアップ
 ### BetterTouchTool
 - ライセンスファイルのインポート
