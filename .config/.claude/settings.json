@@ -150,7 +150,12 @@
       "mcp__claude_ai_Notion__notion-get-users",
       "mcp__claude_ai_Notion__notion-query-data-sources",
       "mcp__claude_ai_Notion__notion-query-meeting-notes",
-      "mcp__claude_ai_Notion__notion-search"
+      "mcp__claude_ai_Notion__notion-search",
+      "Bash(bash *scripts/impact-scan.sh:*)",
+      "Bash(python3 *scripts/token-audit.py:*)",
+      "Bash(python3 *scripts/serve.py:*)",
+      "Bash(bash *scripts/scan-staged.sh:*)",
+      "Bash(bash *scripts/publish.sh:*)"
     ],
     "deny": [
       "Read(~/.ssh/**)",
