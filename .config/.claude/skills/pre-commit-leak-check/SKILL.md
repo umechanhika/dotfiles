@@ -15,7 +15,7 @@ model: claude-sonnet-4-6
 機械的に決定論で処理できる箇所はバンドルスクリプトに委譲し、コンテキスト消費を抑える。LLM は**意味的な判断（A〜D レビュー）と承認対話**に集中する。
 
 - `${CLAUDE_SKILL_DIR}/scripts/scan-staged.sh` … コミット対象一覧（増減/バイナリ/サイズ）と機械的な漏えいシグナル（端末パス・秘密鍵/トークン署名・メール・IP を実ファイル行番号付きで）を 1 呼び出しで収集。**補助シグナルであり、意味的判断は LLM が行う。**
-- `${CLAUDE_SKILL_DIR}/scripts/publish.sh` … push（remote 決定・upstream 判定・`-u` フォールバック）と PR 作成（GitHub 解決判定・base 検出・既存 PR 確認・gh アカウント切替のアトミック実行・PR 作成）を 1 呼び出しで実行。
+- `${CLAUDE_SKILL_DIR}/scripts/publish.sh` … `git add`（指定ファイルのみ）・`git commit`・push（remote 決定・upstream 判定・`-u` フォールバック）・PR 作成（GitHub 解決判定・base 検出・既存 PR 確認・gh アカウント切替のアトミック実行・PR 作成）を 1 呼び出しで実行。**承認後の操作は publish.sh の単一呼び出しに集約し、`cd`/`mktemp`/`rm` 等と `&&`/`;`/改行で連結しない**（複合コマンド扱いで承認プロンプトが再発するため）。
 
 両スクリプトとも想定外は黙って継続せず非ゼロ終了する（フォールバック禁止）。出力やエラーはそのままユーザーに提示し、勝手なリトライ・回避はしない。
 
@@ -61,7 +61,7 @@ git ls-files --others --exclude-standard  # 未追跡の新規ファイル
 
 4. 読み取った内容で続く STEP 2（4 観点の意味的レビュー）を実施する。`git diff --staged` は使わない。
 
-5. STEP 3 の表には「コミット対象ファイル一覧」「除外ファイルとその理由」「リークチェック結果」をまとめて提示し、STEP 4 の承認ゲートを1回だけ通す。承認後は STEP 6 の冒頭（6-0）で git add を実行してからコミットする。
+5. STEP 3 の表には「コミット対象ファイル一覧」「除外ファイルとその理由」「リークチェック結果」をまとめて提示し、STEP 4 の承認ゲートを1回だけ通す。承認後は STEP 6 の publish.sh 呼び出し（`--file` で対象ファイルを列挙）が git add → commit → push をまとめて実行する。
 
 ### STEP 2: 4 観点での意味的レビュー
 
@@ -233,25 +233,13 @@ PR 肢（選択肢 1）の出し分け:
 
 いずれも、**承認（選択肢 1 または 2）が得られて初めて STEP 6 に進む**。
 
-### STEP 6: commit → publish.sh で push →（任意で）PR 作成
+### STEP 6: publish.sh で add → commit → push →（任意で）PR 作成
 
-承認（選択肢 1 または 2）が得られたら、まず commit し、続けて publish.sh で push（と PR）を行う。
-
-#### 6-pre. git add（ケース B のみ）
-
-ケース B（ステージなしで承認された場合）は commit の前に対象ファイルをステージする：
-
-```bash
-git add <承認されたファイル1> <承認されたファイル2> ...
-```
-
-- **`git add -A` / `git add .` は使わない。** 承認テーブルに列挙したファイルのみを個別に指定する。
-- 除外として記録したファイルはステージしない。
-- `git diff --staged --name-only` でステージ内容を確認してから次のステップへ進む。
+承認（選択肢 1 または 2）が得られたら、**publish.sh の単一呼び出し**で add → commit → push（→ PR）を実行する。`cd`/`mktemp`/`rm` 等と `&&`/`;`/改行で連結しないこと（複合コマンド扱いになり承認プロンプトが再発する）。
 
 #### 6-0. ワークツリー環境でのブランチ確認（ワークツリーセッションのみ）
 
-コミット実行前に、現在のパスが git worktree であり、かつ割り当てブランチと現在ブランチが一致するかを確認する。
+publish.sh 呼び出しの**直前**に、現在のパスが git worktree であり割り当てブランチと一致するかを確認する。この確認は読み取り専用で承認プロンプトが出ない。
 
 ```bash
 git worktree list --porcelain && echo "---" && git branch --show-current
@@ -263,45 +251,51 @@ git worktree list --porcelain && echo "---" && git branch --show-current
    > 「このワークツリー (`<path>`) は `<expected-branch>` ブランチに割り当てられていますが、現在 `<current-branch>` にいます。`git checkout <expected-branch>` で正しいブランチに切り替えてから再実行してください。」
 4. メインリポジトリのパス（`main worktree`）に該当する場合はスキップして 6-1 に進む。
 
-#### 6-1. commit
+#### 6-1. publish.sh で add → commit → push（→ PR）
 
-システムプロンプトの git commit 規約に従って commit する。要点のみ再掲：
+`--mode commit-push`（push まで）または `--mode commit-pr`（PR まで）で 1 呼び出しに集約する。
 
-- HEREDOC でメッセージを渡す。
-- `Co-Authored-By` 行を末尾に追加する。
-- `--amend` は使わず、新規 commit を作る（pre-commit フック失敗時も amend ではなく原因修正→新規 commit）。
-- `--no-verify` でフックをスキップしない。
-- commit 後に `git status` で結果を確認する。
+**コミットメッセージ**: `$'...\n...'` 形式で複数行を表現する（ `\n` はエスケープ。literal 改行にしない）。`Co-Authored-By` トレーラーを末尾に含める。`--amend` は使わず新規 commit。`--no-verify` でフックをスキップしない（フック失敗時は原因修正後に再実行）。
 
-#### 6-2. push（と PR）— publish.sh
-
-remote 決定・upstream 判定・push・PR 作成は publish.sh に委譲する。承認された範囲で `--mode` を切り替える。
+**対象ファイル**: 承認テーブルに列挙したファイルを `--file` で個別に指定する。`git add -A` / `git add .` は使わない。除外として記録したファイルは指定しない。
 
 **push まで（選択肢 2）**:
 
 ```bash
-bash "${CLAUDE_SKILL_DIR}/scripts/publish.sh" --mode push
+bash "${CLAUDE_SKILL_DIR}/scripts/publish.sh" \
+  --mode commit-push \
+  --file "<承認ファイル1>" \
+  --file "<承認ファイル2>" \
+  --message $'<subject line>\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>'
 ```
 
-**PR 作成まで（選択肢 1）**: PR 本文を一時ファイルに用意してから渡す。
+**PR 作成まで（選択肢 1）**: PR 本文はヒアドキュメントで stdin に渡す（mktemp/cat/rm 不要）。
 
 ```bash
 # タイトル: コミット 1 件ならその subject、複数なら要約 1 行。
-# 本文: 変更概要（ファイル別の要点・背景）。末尾にシステムプロンプトの PR 規約フッターを必ず含める。
-BODY=$(mktemp)
-cat > "$BODY" <<'EOF'
+# 本文: 変更概要（ファイル別の要点・背景）。末尾に PR 規約フッターを必ず含める。
+bash "${CLAUDE_SKILL_DIR}/scripts/publish.sh" \
+  --mode commit-pr \
+  --file "<承認ファイル1>" \
+  --file "<承認ファイル2>" \
+  --message $'<subject line>\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>' \
+  --title "<PR タイトル（70字以内）>" <<'PRBODY'
 ## 概要
-<変更概要>
+<変更概要（ファイル別の要点・背景）>
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
-EOF
-bash "${CLAUDE_SKILL_DIR}/scripts/publish.sh" --mode pr --title "<title>" --body-file "$BODY"
-rm -f "$BODY"
+PRBODY
 ```
 
 publish.sh の挙動と引数:
 
-- `--mode push|pr`（必須）。`--title`・`--body-file` は `pr` で必須。`--base`・`--remote` は任意（省略時は自動検出。base はデフォルトブランチ、remote は 1 つなら自動 / 複数なら `origin`）。
+- `--mode commit-push|commit-pr`（推奨）。ケース A（ステージ済みあり）・B（unstage）共通で使う（`git add` は冪等なので再指定しても安全）。
+- `--mode push|pr`（後方互換）: commit 済みの変更を push するだけの場合のみ使う。
+- `--file`（繰り返し可）: `git add` 対象ファイル。`commit-*` モードで必須。`git add -A`/`.` は使わない。
+- `--message`: コミットメッセージ全文。`$'subject\n\ntrailer'` 形式で複数行を渡す。`commit-*` モードで必須。
+- `--title`: PR タイトル（`pr`/`commit-pr` で必須）。
+- `--body-file`: PR 本文ファイルパス（省略時は stdin から読む）。`pr` モードでは必須。`commit-pr` モードでは stdin ヒアドキュメント推奨。
+- `--base`・`--remote`: 任意（省略時は自動検出。base はデフォルトブランチ、remote は 1 つなら自動 / 複数なら `origin`）。
 - push: upstream があれば `git push`、無ければ `git push -u <remote> <branch>`。**`--force` 系は行わない。** push 失敗（非 fast-forward 等）は出力をそのまま提示し、`git pull --rebase` 等の方針はユーザーに判断してもらう。
 - PR: `gh repo view` で GitHub 解決可否を判定（URL 文字列一致では判定しない）。base 自動検出、既存 open PR があれば新規作成せず URL を案内、`--draft` なし（ready for review）、`gh pr create --web` は使わない。作成成功後は PR URL をブラウザで開く。
 - 権限不足時のアカウント切替: 有効アカウントが READ でも、write 権限を持つ別のログイン済みアカウントへ**自動で一時切替**して作成し、作成後は必ず元の有効アカウントへ戻す（**ユーザー承認不要**、切替→作成→復帰はスクリプト内で単一シェルとしてアトミックに実行され、復帰は無条件）。どのアカウントにも write 権限が無いときのみ PR を断念し、Web リンクでの作成を案内する。
