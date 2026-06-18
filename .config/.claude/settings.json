@@ -2,6 +2,15 @@
   "cleanupPeriodDays": 365,
   "permissions": {
     "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "LSP",
+      "ListMcpResourcesTool",
+      "ReadMcpResourceTool",
+      "TaskGet",
+      "TaskList",
+      "CronList",
       "Bash(git diff:*)",
       "Bash(git log:*)",
       "Bash(git status:*)",
