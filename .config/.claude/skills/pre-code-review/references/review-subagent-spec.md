@@ -13,9 +13,9 @@
 | Agent C: 品質・安全系 | コード品質、null安全、コメント/ドキュメント、セキュリティ、テスト、ライフサイクル/リーク、R8、Room | `references/review-general.md`（4・5・6・7・12・13・14）／`references/review-android.md`（5・6・7・8・9・10・14） |
 
 各サブエージェントへのプロンプトに必ず含める:
-- レビュー対象の差分（`gh pr diff {pr_number}` の結果。サブエージェント側で再取得させてもよい）
-- 担当観点と、重点的に読む参照ファイルの**絶対パス**（このスキルの `references/` 配下。例: `/Users/hikaru.umetsu/.claude/skills/pre-code-review/references/review-general.md`）
-- STEP 3.5 のパターン検索結果
+- レビュー対象の差分: STEP 1〜4 のスクリプト出力マニフェストに示された `diff=` のパスを渡す（サブエージェントは `Read` ツールでそのパスを参照する。ネットワーク再取得は行わない）
+- 担当観点と、重点的に読む参照ファイルのパス（このスキルの `references/` 配下。例: `~/.claude/skills/pre-code-review/references/review-general.md`）
+- スクリプト出力マニフェストの `=== PATTERN_HITS ===` セクションをそのまま渡す（STEP 3.5 相当）
 - 「各指摘に ファイル・行を付ける。行は `grep -n` で実ファイル行を確認する」指示
 - b-3 の指摘記述ルール（既存コードを引用しない／suggestion は変更行のみ／言い回しルール／**重要度ラベルは書かない**）
 - 「担当観点で該当がなければ『指摘なし』と返す」指示
