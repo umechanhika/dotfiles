@@ -208,7 +208,10 @@
       "Bash(python3 *scripts/token-audit.py:*)",
       "Bash(python3 *scripts/serve.py:*)",
       "Bash(bash *scripts/scan-staged.sh:*)",
-      "Bash(bash *scripts/publish.sh:*)"
+      "Bash(bash *scripts/publish.sh:*)",
+      "Bash(bash *pre-code-review/scripts/*.sh:*)",
+      "Bash(mkdir:*)",
+      "Write(**/tmp/review/**)"
     ],
     "deny": [
       "Read(~/.ssh/**)",
