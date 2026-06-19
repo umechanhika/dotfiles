@@ -93,9 +93,39 @@
    3. **非承認（投稿しない）**: 投稿せずに終了する。md ファイルは残す。
 
 8. **投稿を実行する（承認後のみ）**
-   投稿方式に応じて後述のコマンドを使う。インライン＝「新規指摘の一括投稿」または「追加の行コメント」、返信＝「未解決コメントへの返信」、`PRコメント(行特定不可)`＝「PR全体へのコメント」。
+   `post-review.sh` を使って投稿する。インライン＝`reviews`、追加行コメント＝`comment`、返信＝`reply`、`PRコメント(行特定不可)`＝`pr-comment`。
 
-   **外部書き込み API は 1 コマンド = 1 呼び出しで実行する。** `||` や `&&` で連結しない（連結すると失敗時の挙動が読めず、重複投稿の原因になる）。複数コメントは一括投稿 API（`reviews`）で 1 回にまとめるのを基本とし、個別投稿が必要な場合も 1 件ずつ独立したコマンドで実行する。投稿が失敗したように見えても、再実行する前に `gh pr view {pr_number} --comments` 等で**既に投稿されていないかを確認**し、二重投稿を避ける。
+   **a. ペイロード JSON を組み立て Write ツールで書き出す**
+
+   `tmp/review/.ctx/post-payload.json` に承認済み内容を Write する（`Write(**/tmp/review/**)` で許可済み）。スキーマ:
+   ```json
+   {
+     "owner": "{owner}",
+     "repo": "{repo}",
+     "pr_number": {pr_number},
+     "review": {
+       "commit_id": "{コミットSHA}",
+       "body": "",
+       "event": "COMMENT",
+       "comments": [
+         { "path": "{ファイルパス}", "line": {行番号}, "side": "RIGHT", "body": "{コメント本文}" }
+       ]
+     },
+     "comment":    { "body": "...", "path": "...", "line": {n}, "side": "RIGHT", "commit_id": "..." },
+     "reply":      { "comment_id": {databaseId}, "body": "..." },
+     "pr_comment": { "body": "..." }
+   }
+   ```
+   action に対応するキーのみ必須（他は省略可）。複数行範囲は各 comment に `"start_line"`/`"start_side": "RIGHT"` を追加。
+
+   **b. スクリプトを 1 回だけ実行する**
+   ```bash
+   bash ~/.claude/skills/pre-code-review/scripts/post-review.sh <action> tmp/review/.ctx/post-payload.json
+   ```
+   スクリプトは 1 コマンド = 1 回の POST のみ実行する。複数コメントは一括投稿（`reviews` action）に束ねることで 1 呼び出しにまとめる。フォールバックなしで、失敗時は非ゼロ終了してエラーを出力する。
+
+   **c. 二重投稿の回避**
+   投稿が失敗したように見えても、**再実行する前に `gh pr view {pr_number} --comments` 等で既に投稿されていないかを確認**してから再試行する。
 
 ## コメント本文のルール
 
@@ -105,65 +135,83 @@ md ファイルの本文をそのまま GitHub コメントとして投稿して
 ## 新規指摘の一括投稿（主フロー）
 
 GitHub Web UI の「レビュー開始→複数コメント→まとめて送信」と同等の投稿を行う。
-最新のコミットSHAを取得してから投稿する：
+最新のコミットSHAを取得してから投稿する（手順 3 で実施済みの場合は再利用してよい）：
 
 ```bash
-# コミットSHAの取得
+# コミットSHAの取得（読み取り・allow 済み）
 gh pr view {pr_number} --json headRefOid --jq '.headRefOid'
 ```
 
-（投稿方式の判定〔差分ハンク内かどうか〕と suggestion 紐付け範囲の確認は、上記「投稿前の確認と承認（必須ゲート）」の手順3で実施済み。以下は承認後に実行する投稿コマンド。）
+（投稿方式の判定〔差分ハンク内かどうか〕と suggestion 紐付け範囲の確認は、上記「投稿前の確認と承認（必須ゲート）」の手順3で実施済み。以下は承認後に実行する投稿手順。）
 
-**一括投稿：**
-
-```bash
-gh api /repos/{owner}/{repo}/pulls/{pr_number}/reviews \
-  --method POST \
-  --input - <<'PAYLOAD'
+**一括投稿のペイロード例:**
+```json
 {
-  "commit_id": "{コミットSHA}",
-  "body": "{ユーザーが明示的に指定したテキスト。指定がなければ空文字列}",
-  "event": "COMMENT",
-  "comments": [
-    {
-      "path": "{ファイルパス}",
-      "line": {行番号},
-      "side": "RIGHT",
-      "body": "{コメント本文（ラベルなし）}"
-    }
-  ]
+  "owner": "{owner}", "repo": "{repo}", "pr_number": {pr_number},
+  "review": {
+    "commit_id": "{コミットSHA}",
+    "body": "",
+    "event": "COMMENT",
+    "comments": [
+      { "path": "{ファイルパス}", "line": {行番号}, "side": "RIGHT", "body": "{コメント本文（ラベルなし）}" }
+    ]
+  }
 }
-PAYLOAD
 ```
 
-複数行範囲に紐付ける場合は、対象コメントに `"start_line": {開始行番号}` と `"start_side": "RIGHT"` を追加する（`line` は終了行）。
+複数行範囲は各 comment に `"start_line": {開始行番号}`, `"start_side": "RIGHT"` を追加（`line` は終了行）。
+`body`（レビュー全体コメント）はデフォルト空文字列。ユーザーが明示した場合のみ指定テキストを使用。
 
-`body` フィールドはデフォルト空文字列とし、ユーザーが明示的にテキストを指定した場合のみその文言を使用する。
+```bash
+bash ~/.claude/skills/pre-code-review/scripts/post-review.sh reviews tmp/review/.ctx/post-payload.json
+```
 
 ## 追加の行コメント（一括投稿後の個別追加）
 
+**ペイロード例:**
+```json
+{
+  "owner": "{owner}", "repo": "{repo}", "pr_number": {pr_number},
+  "comment": {
+    "body": "{コメント内容}",
+    "path": "{ファイルパス}",
+    "line": {行番号},
+    "side": "RIGHT",
+    "commit_id": "{コミットSHA}"
+  }
+}
+```
+
 ```bash
-gh api /repos/{owner}/{repo}/pulls/{pr_number}/comments \
-  --method POST \
-  --field body="{コメント内容}" \
-  --field path="{ファイルパス}" \
-  --field line={行番号} \
-  --field side="RIGHT" \
-  --field commit_id="{コミットSHA}"
+bash ~/.claude/skills/pre-code-review/scripts/post-review.sh comment tmp/review/.ctx/post-payload.json
 ```
 
 ## 未解決コメントへの返信
 
+**ペイロード例:**
+```json
+{
+  "owner": "{owner}", "repo": "{repo}", "pr_number": {pr_number},
+  "reply": { "comment_id": {comment_database_id}, "body": "{返信内容}" }
+}
+```
+
 ```bash
-gh api /repos/{owner}/{repo}/pulls/comments/{comment_database_id}/replies \
-  --method POST \
-  --field body="{返信内容}"
+bash ~/.claude/skills/pre-code-review/scripts/post-review.sh reply tmp/review/.ctx/post-payload.json
 ```
 
 ## PR全体へのコメント
 
+**ペイロード例:**
+```json
+{
+  "owner": "{owner}", "repo": "{repo}", "pr_number": {pr_number},
+  "pr_comment": { "body": "{コメント}" }
+}
+```
+
 ```bash
-gh pr comment {pr_number} --body "{コメント}"
+bash ~/.claude/skills/pre-code-review/scripts/post-review.sh pr-comment tmp/review/.ctx/post-payload.json
 ```
 
 投稿後は投稿結果のURLをユーザーに伝える。
