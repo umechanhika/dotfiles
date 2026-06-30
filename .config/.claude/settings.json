@@ -262,10 +262,6 @@
           {
             "type": "command",
             "command": "$HOME/agent-manager/hooks/agent-manager-hook.sh"
-          },
-          {
-            "type": "command",
-            "command": "$HOME/agent-manager/hooks/agent-manager-launch.sh"
           }
         ]
       }
