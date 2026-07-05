@@ -36,11 +36,30 @@ if used_pct is not None:
 else:
     token_info = f'{YELLOW}ctx: ready{RESET}'
 
+rate_limits = data.get('rate_limits', {})
+
+def rate_limit_segment(label, window):
+    pct = window.get('used_percentage')
+    if pct is None:
+        return None
+    pct_int = round(pct)
+    color = RED if pct_int >= 80 else YELLOW
+    return f'{color}{label}: {pct_int}%{RESET}'
+
+rate_segments = [
+    seg for seg in (
+        rate_limit_segment('5h', rate_limits.get('five_hour', {})),
+        rate_limit_segment('7d', rate_limits.get('seven_day', {})),
+    )
+    if seg is not None
+]
+
 if branch:
     dir_branch = f'{CYAN}{BOLD}{dir_name}{RESET}{SEP}({RESET}{MAGENTA}{branch}{RESET}{SEP}){RESET}'
 else:
     dir_branch = f'{CYAN}{BOLD}{dir_name}{RESET}'
 
-line = f'{dir_branch} {SEP}|{RESET} {GREEN}{model}{RESET} {SEP}|{RESET} {token_info}'
+segments = [dir_branch, f'{GREEN}{model}{RESET}', token_info] + rate_segments
+line = f' {SEP}|{RESET} '.join(segments)
 print(line, end='')
 "
