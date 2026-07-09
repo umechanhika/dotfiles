@@ -18,7 +18,7 @@ description: Android (Kotlin/Jetpack Compose) のコードレビューを行う�
 |------|---------|
 | レビュー観点（言語・フレームワーク非依存） | `references/review-general.md` |
 | レビュー観点（Android/Kotlin/Compose 固有） | `references/review-android.md` |
-| サブエージェント詳細仕様（STEP 5b の担当割当 b-1・統合 b-2） | `references/review-subagent-spec.md` |
+| サブエージェント詳細仕様（STEP 5a の委任 a-1・STEP 5b の担当割当 b-1・統合 b-2） | `references/review-subagent-spec.md` |
 | 文体・言い回しルール（指摘記述ルール b-3・スタイル原則・優先度判断・STEP 5.5 セルフチェック） | `references/review-style.md` |
 | 出力mdテンプレート全文（STEP 6 の出力形式） | `references/review-output-format.md` |
 | PRコメント投稿手順・API 詳細・投稿前確認ゲート | `references/review-pr-comment.md` |
@@ -84,14 +84,14 @@ threads={パス}  ← self モードのみ
 ```
 
 マニフェストを読んだら:
-- `=== CONTEXT_FILES ===` に示された diff / threads のパスを `Read` ツールで参照してレビューを実施する
-- STEP 5b の新規指摘生成では `=== PATTERN_HITS ===` の結果を必ずインプットとして参照すること
+- `=== CONTEXT_FILES ===` に示された diff / threads のパスは、親（あなた）自身では `Read` しない。STEP 5a・5b いずれもサブエージェントにパスを渡して読ませ、親は構造化された結果だけを受け取る（詳細は `references/review-subagent-spec.md`）
+- STEP 5b の新規指摘生成では `=== PATTERN_HITS ===` の結果を必ずサブエージェントへのインプットとして渡すこと
 
 ### STEP 5: レビュー実施
 
 **a. 未解決コメントへの対応検討**（自分が作成したPRの場合のみ）
-- 各コメントの内容を読み、差分コードと照らし合わせて対応要否を判断する
-- 対応方針と返信案を作成する（後述のスタイル原則に従う）
+
+diff・threads のパスを渡した**サブエージェントを1つ起動**し、各コメントの対応要否・対応方針・返信案を判断させる。親は diff/threads 全文を読まず、コメントID単位の判断結果だけを受け取る。詳細は `references/review-subagent-spec.md`（a-1）を参照。
 
 **b. 差分コードへの新規指摘生成**（他者のPR / PRなしの場合のみ）
 
