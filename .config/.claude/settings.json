@@ -1,4 +1,96 @@
 {
+  "hooks": {
+  "Notification" : [
+  {
+    "hooks" : [
+    {
+      "command" : "$HOME\/.claude\/agent-manager\/hooks\/agent-manager-hook.sh",
+      "type" : "command"
+    }
+    ]
+  }
+  ],
+  "PostToolUse" : [
+  {
+    "hooks" : [
+    {
+      "command" : "$HOME\/.claude\/agent-manager\/hooks\/agent-manager-hook.sh",
+      "type" : "command"
+    }
+    ]
+  }
+  ],
+  "PreToolUse" : [
+  {
+    "hooks" : [
+    {
+      "command" : "$HOME\/.claude\/agent-manager\/hooks\/agent-manager-hook.sh",
+      "type" : "command"
+    }
+    ]
+  }
+  ],
+  "SessionEnd" : [
+  {
+    "hooks" : [
+    {
+      "command" : "$HOME\/.claude\/agent-manager\/hooks\/agent-manager-hook.sh",
+      "type" : "command"
+    }
+    ]
+  }
+  ],
+  "SessionStart" : [
+  {
+    "hooks" : [
+    {
+      "command" : "$HOME\/.claude\/agent-manager\/hooks\/agent-manager-hook.sh",
+      "type" : "command"
+    }
+    ]
+  }
+  ],
+  "Stop" : [
+  {
+    "hooks" : [
+    {
+      "command" : "$HOME\/.claude\/agent-manager\/hooks\/agent-manager-hook.sh",
+      "type" : "command"
+    }
+    ]
+  }
+  ],
+  "SubagentStart" : [
+  {
+    "hooks" : [
+    {
+      "command" : "$HOME\/.claude\/agent-manager\/hooks\/agent-manager-hook.sh",
+      "type" : "command"
+    }
+    ]
+  }
+  ],
+  "SubagentStop" : [
+  {
+    "hooks" : [
+    {
+      "command" : "$HOME\/.claude\/agent-manager\/hooks\/agent-manager-hook.sh",
+      "type" : "command"
+    }
+    ]
+  }
+  ],
+  "UserPromptSubmit" : [
+  {
+    "hooks" : [
+    {
+      "command" : "$HOME\/.claude\/agent-manager\/hooks\/agent-manager-hook.sh",
+      "type" : "command"
+    }
+    ]
+  }
+  ]
+},
   "cleanupPeriodDays": 365,
   "permissions": {
     "allow": [
@@ -253,80 +345,6 @@
       "Edit(**/id_rsa)",
       "Edit(**/id_ed25519)",
       "Edit(~/Library/Keychains/**)"
-    ]
-  },
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$HOME/agent-manager/hooks/agent-manager-hook.sh"
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$HOME/agent-manager/hooks/agent-manager-hook.sh"
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$HOME/agent-manager/hooks/agent-manager-hook.sh"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$HOME/agent-manager/hooks/agent-manager-hook.sh"
-          }
-        ]
-      }
-    ],
-    "Notification": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$HOME/agent-manager/hooks/agent-manager-hook.sh"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$HOME/agent-manager/hooks/agent-manager-hook.sh"
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$HOME/agent-manager/hooks/agent-manager-hook.sh"
-          }
-        ]
-      }
     ]
   },
   "statusLine": {
