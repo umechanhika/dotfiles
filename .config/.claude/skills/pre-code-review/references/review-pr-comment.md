@@ -97,7 +97,7 @@
 
    **a. ペイロード JSON を組み立て Write ツールで書き出す**
 
-   `tmp/review/.ctx/post-payload.json` に承認済み内容を Write する（`Write(**/tmp/review/**)` で許可済み）。スキーマ:
+   `tmp/review/.ctx/post-payload.json` に承認済み内容を Write する（`Edit(**/tmp/review/**)` で許可済み）。スキーマ:
    ```json
    {
      "owner": "{owner}",

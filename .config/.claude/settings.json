@@ -304,7 +304,7 @@
       "Bash(bash *pre-code-review/scripts/gather-context.sh:*)",
       "Bash(bash *pre-code-review/scripts/post-review.sh:*)",
       "Bash(mkdir:*)",
-      "Write(**/tmp/review/**)"
+      "Edit(**/tmp/review/**)"
     ],
     "deny": [
       "Read(~/.ssh/**)",
