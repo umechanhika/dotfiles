@@ -15,6 +15,7 @@ ln -s ~/dotfiles/.vim/.vimrc ~
 # Claude Code global config / skills
 ln -sf ~/dotfiles/.config/.claude/CLAUDE.md ~/.claude/CLAUDE.md
 ln -sf ~/dotfiles/.config/.claude/skills ~/.claude/skills
+ln -sf ~/dotfiles/.config/.claude/output-styles ~/.claude/output-styles
 ln -sf ~/dotfiles/.config/.claude/settings.json ~/.claude/settings.json
 ln -sf ~/dotfiles/.config/.claude/statusline-command.sh ~/.claude/statusline-command.sh
 
