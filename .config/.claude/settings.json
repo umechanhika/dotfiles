@@ -360,5 +360,6 @@
   "effortLevel": "high",
   "theme": "dark",
   "agentPushNotifEnabled": true,
-  "model": "opusplan"
+  "model": "opusplan",
+  "outputStyle": "Asuka"
 }
