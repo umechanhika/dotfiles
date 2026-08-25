@@ -355,7 +355,16 @@
     "skill-creator@claude-plugins-official": true,
     "frontend-design@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": true,
-    "kotlin-lsp@claude-plugins-official": true
+    "kotlin-lsp@claude-plugins-official": true,
+    "eli5@claude-community": true
+  },
+  "extraKnownMarketplaces": {
+    "claude-community": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-community"
+      }
+    }
   },
   "effortLevel": "high",
   "theme": "dark",
