@@ -1,18 +1,6 @@
 #!/bin/sh
-# git worktree create (+ Android Studio launch for Gradle/Flutter projects)
+# git worktree create
 # NOTE: Must be sourced (`. gwc.sh`) for `cd` to take effect — use the wrapper function in .zshrc: gwc() { . ~/dotfiles/.bin/gwc.sh "$@" }
-
-# worktree が Android(Gradle) もしくは Flutter プロジェクトかを判定する。
-# AS 内で作業しないプロジェクトで Studio を起動すると .idea/ 等の不要な
-# ファイルが生成され git 差分を汚すため、該当プロジェクトのみ起動する。
-is_studio_project() {
-  dir="$1"
-  for f in build.gradle build.gradle.kts settings.gradle settings.gradle.kts; do
-    [ -f "$dir/$f" ] && return 0
-  done
-  [ -f "$dir/pubspec.yaml" ] && [ -d "$dir/android" ] && return 0
-  return 1
-}
 
 main_repo=$(git worktree list --porcelain 2>/dev/null | awk '/^worktree / { print $2; exit }')
 
@@ -44,7 +32,7 @@ fi
 
 # worktrees を main_repo の兄弟ディレクトリに配置する
 # 例: ~/path/to/<repo> → ~/path/to/<repo>-worktrees/<dir_name>
-# プロジェクト外に置くことで Android Studio が VCS ルートとして自動検出するのを防ぐ
+# プロジェクト外に置くことで、エディタ等が誤って VCS ルートとして自動検出するのを防ぐ
 parent_dir=$(dirname "$main_repo")
 repo_name=$(basename "$main_repo")
 wt_root="$parent_dir/${repo_name}-worktrees"
@@ -89,6 +77,4 @@ else
   [ "$new_local_branch" -eq 0 ] && git pull
 fi
 
-if is_studio_project "$wt_path"; then
-  studio .
-fi
+return 0
