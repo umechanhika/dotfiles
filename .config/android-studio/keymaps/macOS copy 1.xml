@@ -1,0 +1,36 @@
+<keymap version="1" name="macOS copy 1" parent="Mac OS X 10.5+">
+  <action id="$Delete">
+    <keyboard-shortcut first-keystroke="delete" />
+    <keyboard-shortcut first-keystroke="back_space" />
+  </action>
+  <action id="ActivateTerminalToolWindow">
+    <keyboard-shortcut first-keystroke="alt f12" />
+    <keyboard-shortcut first-keystroke="meta t" />
+  </action>
+  <action id="BookmarksView.Delete">
+    <keyboard-shortcut first-keystroke="delete" />
+    <keyboard-shortcut first-keystroke="back_space" />
+  </action>
+  <action id="Console.TableResult.DeleteRows" />
+  <action id="FindUsages">
+    <keyboard-shortcut first-keystroke="meta u" />
+  </action>
+  <action id="GotoSuperMethod" />
+  <action id="HideActiveWindow">
+    <keyboard-shortcut first-keystroke="shift meta back_space" />
+  </action>
+  <action id="JumpToLastChange" />
+  <action id="Terminal.NewTab" />
+  <action id="UsageView.Exclude">
+    <keyboard-shortcut first-keystroke="delete" />
+    <keyboard-shortcut first-keystroke="back_space" />
+  </action>
+  <action id="Vcs.UpdateProject" />
+  <action id="android.deploy.ApplyChanges">
+    <keyboard-shortcut first-keystroke="ctrl meta e" />
+  </action>
+  <action id="android.deploy.CodeSwap">
+    <keyboard-shortcut first-keystroke="shift ctrl meta e" />
+  </action>
+  <action id="org.intellij.plugins.markdown.ui.actions.styling.InsertImageAction" />
+</keymap>
