@@ -1,0 +1,5 @@
+<application>
+  <component name="TerminalLocalOptions">
+    <option name="shellPath" value="/bin/zsh" />
+  </component>
+</application>

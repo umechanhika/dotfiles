@@ -1,0 +1,34 @@
+<application>
+  <component name="CodeVisionSettings">
+    <option name="enabled" value="false" />
+  </component>
+  <component name="DeclarativeInlayHintsSettings">
+    <option name="providerIdToEnabled">
+      <map>
+        <entry key="compose.state.read" value="false" />
+        <entry key="groovy.implicit.null.argument" value="true" />
+        <entry key="groovy.lambda.parameter.inlay.provider" value="true" />
+        <entry key="groovy.local.variable.implicit.types" value="true" />
+        <entry key="java.annotation.hints" value="true" />
+        <entry key="java.implicit.lambdaParameter" value="true" />
+        <entry key="java.implicit.types" value="false" />
+        <entry key="java.method.chains" value="true" />
+        <entry key="kotlin.compiler.plugins.modality" value="true" />
+        <entry key="kotlin.compiler.plugins.supertypes" value="true" />
+        <entry key="kotlin.default.parameters.hints" value="false" />
+        <entry key="kotlin.lambdas.hints" value="false" />
+        <entry key="kotlin.method.chains" value="false" />
+        <entry key="kotlin.parameters.hints" value="false" />
+        <entry key="kotlin.references.types.hints" value="false" />
+        <entry key="kotlin.values.hints" value="true" />
+        <entry key="oc.type.hints" value="true" />
+      </map>
+    </option>
+  </component>
+  <component name="EditorSettings">
+    <option name="USE_SOFT_WRAPS" value="PREVIEW" />
+  </component>
+  <component name="InlineCompletionOnboarding">
+    <option name="onboardingFinished" value="true" />
+  </component>
+</application>

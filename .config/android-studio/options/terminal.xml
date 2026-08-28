@@ -1,0 +1,10 @@
+<application>
+  <component name="ReworkedTerminalUsage"><![CDATA[{
+  "enterKeyPressedTimes": 2873,
+  "completionPopupShownTimes": 4
+}]]></component>
+  <component name="TerminalOptionsProvider">
+    <option name="myShellPath" value="/bin/zsh" />
+    <option name="useOptionAsMetaKey" value="true" />
+  </component>
+</application>
