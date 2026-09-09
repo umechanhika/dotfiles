@@ -9,7 +9,7 @@ set -euo pipefail
 #   action:
 #     reviews    — 一括投稿 (gh api /pulls/{pr}/reviews POST)
 #     comment    — 追加行コメント (gh api /pulls/{pr}/comments POST)
-#     reply      — 未解決スレッドへの返信 (gh api /pulls/comments/{id}/replies POST)
+#     reply      — 未解決スレッドへの返信 (gh api /pulls/{pr}/comments/{id}/replies POST)
 #     pr-comment — PR 全体コメント (gh pr comment)
 #
 #   payload.json スキーマ:
@@ -70,7 +70,7 @@ case "$ACTION" in
   reply)
     CID=$(jq -r '.reply.comment_id' "$PAYLOAD")
     [[ "$CID" == "null" ]] && { echo "ERROR: .reply.comment_id is missing in payload" >&2; exit 1; }
-    ENDPOINT="/repos/$OWNER/$REPO/pulls/comments/$CID/replies"
+    ENDPOINT="/repos/$OWNER/$REPO/pulls/$PR/comments/$CID/replies"
     BODY_FILTER='{body: .reply.body}'
     ;;
   pr-comment)
