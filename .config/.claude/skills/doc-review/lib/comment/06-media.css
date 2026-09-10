@@ -64,6 +64,7 @@
   #rd-content code { color: #e6c07b; }
   #rd-content th, #rd-content td { border-color: #333a45; }
   #rd-content blockquote { border-left-color: #3a414c; color: #aab1bd; }
+  #rd-content .rd-frontmatter { border-left-color: #4b525e; color: #9aa1ac; }
   #rd-sidebar { border-left-color: #2c313b; }
   .rd-sidebar-head, .rd-sidebar-foot { border-color: #2c313b; }
   .rd-item { background: #1f242c; border-color: var(--rd-card-border); }

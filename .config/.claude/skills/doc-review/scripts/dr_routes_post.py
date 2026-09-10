@@ -28,6 +28,8 @@ class PostRoutes:
             return self._submit()
         if path == "/threads/reply":
             return self._reply()
+        if path == "/threads/reply-batch":
+            return self._reply_batch()
         if path == "/threads/resolve":
             return self._resolve()
         return self._send_error_json(404, "not found")
@@ -123,6 +125,52 @@ class PostRoutes:
             dr_store.save()
             rev = store["rev"]
         self._send_json({"ok": True, "rev": rev})
+
+    def _reply_batch(self) -> None:
+        # All-or-nothing: validate every reply against the current store
+        # before mutating anything. Silently skipping a bad entry (like
+        # _submit()'s `continue`) would leave the caller unsure which of N
+        # replies actually landed, so any single invalid entry fails the
+        # whole batch instead of partially applying it.
+        payload = self._read_body()
+        if payload is None:
+            return self._send_error_json(400, "invalid JSON")
+        replies = payload.get("replies")
+        if not isinstance(replies, list) or not replies:
+            return self._send_error_json(400, "no replies")
+
+        with dr_store.LOCK:
+            store = dr_store.store()
+            seen_tids = set()
+            resolved = []  # [(thread, text, anchor_update_or_None), ...] in request order
+            for i, r in enumerate(replies):
+                if not isinstance(r, dict):
+                    return self._send_error_json(400, "replies[%d]: must be an object" % i)
+                tid = r.get("thread_id")
+                text = (r.get("text") or "").strip()
+                if not tid or not text:
+                    return self._send_error_json(400, "replies[%d]: thread_id and text required" % i)
+                if tid in seen_tids:
+                    return self._send_error_json(400, "replies[%d]: duplicate thread_id: %s" % (i, tid))
+                seen_tids.add(tid)
+                thread = dr_store.find_thread(tid)
+                if thread is None:
+                    return self._send_error_json(404, "replies[%d]: thread not found: %s" % (i, tid))
+                anchor_update = r.get("anchor_update")
+                resolved.append((thread, text, anchor_update if isinstance(anchor_update, dict) else None))
+
+            applied = []
+            for thread, text, anchor_update in resolved:
+                thread["messages"].append({"role": "claude", "text": text, "ts": _now()})
+                if thread.get("status") != "resolved":
+                    thread["status"] = "answered"
+                if anchor_update is not None and isinstance(thread.get("anchor"), dict):
+                    dr_store.merge_anchor(thread["anchor"], anchor_update)
+                applied.append(thread["id"])
+            store["rev"] += 1
+            dr_store.save()
+            rev = store["rev"]
+        self._send_json({"ok": True, "rev": rev, "applied": applied})
 
     def _resolve(self) -> None:
         payload = self._read_body()

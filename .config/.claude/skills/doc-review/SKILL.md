@@ -35,8 +35,8 @@ serve.py (127.0.0.1, threads.json の唯一の書き手)
    ▼
 Claude(メインセッション)
    │  ③ Monitor で inbox.jsonl の新バッチを待受
-   │  ④ 各 item の anchor を解決して対象ファイルを Edit
-   │  ⑤ serve.py reply で各スレッドに編集方針を返信(HTTP→サーバー)
+   │  ④ バッチ全体を読んでから、各 item の anchor を解決して対象ファイルを Edit（まとめて発行）
+   │  ⑤ serve.py reply-batch で全スレッドへの返信を1リクエストにまとめて送信(HTTP→サーバー)
    ▼
 ブラウザが /threads(rev) をポーリング → 返信表示＋ソース再読込（②へ戻る）
 ```
@@ -70,53 +70,83 @@ open "<SERVE_URL>"
 
 ### STEP 3: 送信を待受（Monitor）
 `references/anchoring.md` を Read で読み込む（anchor 解決ルール）。
-**Monitor ツール**（`persistent: true`）で `inbox.jsonl` への新規バッチ追記を待つ:
 
 ```bash
-mkdir -p <WORK_DIR> && touch <WORK_DIR>/inbox.jsonl && tail -f -n 0 <WORK_DIR>/inbox.jsonl
+mkdir -p <WORK_DIR> && touch <WORK_DIR>/inbox.jsonl
 ```
+
+**Monitor ツール**（`persistent: true`）で `inbox.jsonl` への新規バッチ追記を待つ。呼び出しはこの設定にする:
+
+- `command`: `tail -f -n 0 <WORK_DIR>/inbox.jsonl`
+- `description`: `doc-review inbox: <対象ファイル名>`
+- `persistent`: `true`
+
+**禁止**: 素の Bash（`run_in_background`）で `tail -f` を代用しない。バックグラウンドタスクの通知は「プロセス終了時」だけで、`tail -f` は終了しないため新規バッチの追記に気づけない（実際にこれで送信を見落とした事例がある。正しく Monitor ツールを使うこと）。
 
 - 1イベント = 1バッチ。`items` に各コメント（`thread_id` / `anchor` / `text` / `is_new`）が入る。
 
-### STEP 4: バッチを処理（編集 → 各スレッドに返信）
-新バッチのイベントが届いたら:
-1. そのバッチ（最新行）を読む（イベント本文、または `<WORK_DIR>/inbox.jsonl` の末尾行を Read）。
-2. 各 item を処理する:
-   - `is_new: true` … 新規コメント。`anchor` を `references/anchoring.md` の手順で対象ファイルの該当箇所に解決し、`text` の指示に沿って **Edit** で最小変更する。
-   - `is_new: false`（`thread_id` のみ）… **再フィードバック**。そのスレッドの**過去のやり取り（自分の前回返信と前回の編集）を踏まえて**、必要なら前回の編集を調整/取り消し、`text` の指示に沿って直し直す。全文脈が必要なら `curl -s <SERVE_URL>threads` でスレッド一覧を取得。
-   - 位置が特定できない item は飛ばさず、何が特定できなかったかを返信で伝える。
-3. 処理した**各スレッドについて**、編集方針（何を・なぜそう直したか／特定できなかった旨）をそのコメントへの返信として記録する。**編集で箇所が変わった/消えた場合は、同じ reply でアンカーも更新する**（ブラウザは内容一致でコメント枠を再配置するため。詳細は `references/anchoring.md`「編集後のアンカー更新」）:
+### STEP 4: バッチを処理（読み切る → まとめて編集 → 一括返信）
+新バッチのイベントが届いたら、次の3段で進める。
+
+**1. バッチ全体をまず読み切る**
+
+- そのバッチ（最新行）を読む（イベント本文、または `<WORK_DIR>/inbox.jsonl` の末尾行を Read）。
+- 対象ファイルの Read は1回。全 item について、`is_new: true`（新規コメント）は `anchor` を `references/anchoring.md` の手順で該当箇所に解決し、`is_new: false`（`thread_id` のみ、**再フィードバック**）はそのスレッドの過去のやり取り（自分の前回返信と前回の編集）を踏まえて対応方針を決める。全文脈が必要なら `curl -s <SERVE_URL>threads` でスレッド一覧を取得。
+- **1バッチ内の全 item をまとめて読み、関連するものは整合を取りながら編集内容を確定する**（`references/anchoring.md` 参照）。位置が特定できない item は飛ばさず、何が特定できなかったかを後述の返信で伝える。
+
+**2. 編集をまとめて発行する**
+
+- 互いに重複しない箇所への **Edit** は、1メッセージに複数の Edit ツール呼び出しをまとめて発行する。
+- 同一ブロックを複数コメントが指している場合や、前の編集結果に依存する編集は、その分だけ分けて発行する。
+- 編集で箇所が変わった/消えた場合は、次の返信でアンカーも更新する（ブラウザは内容一致でコメント枠を再配置するため。詳細は `references/anchoring.md`「編集後のアンカー更新」）。
+
+**3. 返信を一括送信する**
+
+処理した**各スレッド**について、編集方針（何を・なぜそう直したか／特定できなかった旨）をそのコメントへの返信として記録する。
+
+- **2件以上** … `<WORK_DIR>/replies-<batch_id>.json` を Write で作成し（`batch_id` はそのバッチの値。バッチごとに別名になるので既存ファイルを上書きしない）、`reply-batch` を**1回**実行する:
 
 ```bash
-# 通常（箇所が変わっていない）
-python3 <SKILL_DIR>/scripts/serve.py reply \
-  --target <対象ファイルの絶対パス> \
-  --thread-id <item の thread_id> \
-  --text "<このコメントへの編集方針・実施内容・理由>"
-
-# 箇所を書き換え/移動した → --anchor-block-raw で編集後ブロック全文を渡す（変更箇所に枠が追従）
-python3 <SKILL_DIR>/scripts/serve.py reply \
-  --target <対象ファイルの絶対パス> --thread-id <thread_id> \
-  --text "<編集方針>" --anchor-block-raw "<編集後のそのブロック全文(生md)>"
-
-# 箇所を削除した → --anchor-gone（枠を出さず「削除されました」と表示）
-python3 <SKILL_DIR>/scripts/serve.py reply \
-  --target <対象ファイルの絶対パス> --thread-id <thread_id> \
-  --text "<削除した旨>" --anchor-gone
+python3 <SKILL_DIR>/scripts/serve.py reply-batch \
+  --target <対象ファイルの絶対パス> --file <WORK_DIR>/replies-<batch_id>.json
 ```
 
-（`reply` は稼働中サーバーへ HTTP POST する。`--target` から既定 work-dir を逆算して `server.url` を読むので、work-dir 指定は不要。`--anchor-*` は任意で、付けなければ従来どおり返信のみ。）
+`replies-<batch_id>.json` の中身（返信オブジェクトの配列。`anchor_update` は任意）:
 
-4. ユーザーに反映の要点を簡潔に伝える。**Monitor は止めず**、次のバッチを待ち続ける（ライブ編集ループ）。
+```json
+[
+  {"thread_id": "t1", "text": "<編集方針>",
+   "anchor_update": {"block_raw": "<編集後のそのブロック全文(生md)>"}},
+  {"thread_id": "t2", "text": "<削除した旨>",
+   "anchor_update": {"gone": true}},
+  {"thread_id": "t3", "text": "<箇所が変わっていない場合はこれだけ>"}
+]
+```
+
+- **1件のみ** … ファイル作成の往復が無駄になるので、従来どおり `reply` を使う:
+
+```bash
+python3 <SKILL_DIR>/scripts/serve.py reply \
+  --target <対象ファイルの絶対パス> --thread-id <thread_id> \
+  --text "<編集方針>"
+```
+
+（`reply` / `reply-batch` はいずれも稼働中サーバーへ HTTP POST する。`--target` から既定 work-dir を逆算して `server.url` を読むので、work-dir 指定は不要。`reply-batch` は全件検証してから全件適用する all-or-nothing で、1件でも不正なら1件も反映されない。）
+
+**4. 結果を伝える**
+
+ユーザーに反映の要点を簡潔に伝える。**Monitor は止めず**、次のバッチを待ち続ける（ライブ編集ループ）。
 
 **重要**: スレッドの **resolve（解決）はしない** — 解決はユーザーがブラウザで行う。Claude は編集と `reply` のみ。
 
 ### STEP 5: 終了
-ユーザーが「終了」等と言ったら、Monitor を **TaskStop** で止め、サーバーを停止する:
+ユーザーが「終了」等と言ったら、Monitor を **TaskStop** で止め、`stop` でブラウザのタブを閉じてからサーバーを停止する:
 
 ```bash
-kill "$(cat <WORK_DIR>/server.pid 2>/dev/null)" 2>/dev/null || true
+python3 <SKILL_DIR>/scripts/serve.py stop --target <対象ファイルの絶対パス>
 ```
+
+`stop` の出力（閉じたタブ数 / notice / error）をユーザーに1行で伝える。`error` の場合はタブが残っている旨と原因を伝える（macOS の自動化許可が未承認だと `error` になる。下記「注意」参照）。
 
 （明示終了しなくても、サーバーは 30 分アイドルで自動停止する。`threads.json` は残るので次回起動時に復元される。）
 
@@ -126,3 +156,4 @@ kill "$(cat <WORK_DIR>/server.pid 2>/dev/null)" 2>/dev/null || true
 - 行番号でなく `block_raw` / 選択テキスト＋前後文脈で箇所を特定する（`references/anchoring.md` 参照）。
 - 作業ファイル（threads.json/inbox.jsonl/server.*）は `~/.claude/doc-review/` 配下に作られ、対象リポジトリは汚さない。
 - ポートが埋まっていれば 5050 から空きポートへ自動フォールバックする（URLは stdout / `server.url` 参照）。
+- `stop` は既定ブラウザが Google Chrome か Safari のときのみタブを閉じられる（AppleScript でブラウザを操作するため、初回実行時に macOS の自動化許可ダイアログが出る）。それ以外の既定ブラウザでは `error` になり、サーバー停止だけが行われる。

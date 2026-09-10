@@ -230,7 +230,7 @@
       head,
       h("div", { "class": "rd-item-target", text: anchorSnippet(d.anchor) }),
       anchorNote(entry),
-      bubble("user", d.text, true, "draft:" + d.pid)
+      bubble("user", d.text, true, "draft:" + d.pid, d.pid)
     ]);
     item.addEventListener("click", cardJump("draft:" + d.pid));
     return item;
@@ -262,7 +262,7 @@
 
     // pending re-feedback drafts for this thread
     repliesFor(t.id).forEach(function (p) {
-      var b = bubble("user", p.text, true, "reply:" + p.pid);
+      var b = bubble("user", p.text, true, "reply:" + p.pid, p.pid);
       b.appendChild(h("button", {
         "class": "rd-bubble-del", type: "button", text: "×", title: "下書きを削除", "aria-label": "下書きを削除",
         on: { click: function (e) { e.stopPropagation(); removePending(p.pid); } }
@@ -303,16 +303,90 @@
     return item;
   }
 
-  function bubble(role, text, isDraft, key) {
-    var md = renderCommentMarkdown(text);
-    var body = md != null
-      ? h("div", { "class": "rd-bubble-text rd-md", html: md })
-      : h("div", { "class": "rd-bubble-text", text: text });   // parse failed -> safe plain text
-    if (key) body.dataset.mkey = key;
-    return h("div", { "class": "rd-bubble " + (role === "claude" ? "claude" : "user") + (isDraft ? " draft" : "") }, [
-      h("span", { "class": "rd-bubble-who", text: role === "claude" ? "Claude" : (isDraft ? "あなた（送信待ち）" : "あなた") }),
-      body
-    ]);
+  // `editPid` is only ever passed for a not-yet-sent item (a draft comment or a
+  // pending re-feedback reply) — sent thread messages never pass it, so they
+  // stay immutable, matching "編集は送信前のみ" by construction rather than by
+  // a status check.
+  function bubble(role, text, isDraft, key, editPid) {
+    var isEditing = !!editPid && state.editingPid === editPid;
+    var who = h("span", {
+      "class": "rd-bubble-who",
+      text: role === "claude" ? "Claude" : (isDraft ? "あなた（送信待ち）" : "あなた")
+    });
+    var kids = [who];
+
+    if (isEditing) {
+      var ta = h("textarea", {
+        "class": "rd-bubble-edit-input", value: text, rows: 3,
+        on: {
+          keydown: function (e) {
+            if (e.key === "Escape") { e.stopPropagation(); cancelEditPending(); }
+            else if (e.key === "Enter" && e.metaKey && !e.shiftKey) {
+              e.preventDefault(); e.stopPropagation();
+              commitEditPending(editPid, ta.value);
+            }
+          }
+        }
+      });
+      var actions = h("div", { "class": "rd-bubble-edit-actions" }, [
+        h("button", {
+          "class": "rd-bubble-edit-save", type: "button", text: "保存 (⌘Enter)",
+          on: { click: function (e) { e.stopPropagation(); commitEditPending(editPid, ta.value); } }
+        }),
+        h("button", {
+          "class": "rd-bubble-edit-cancel", type: "button", text: "キャンセル",
+          on: { click: function (e) { e.stopPropagation(); cancelEditPending(); } }
+        })
+      ]);
+      kids.push(ta, actions);
+      // Focus after mount (the element isn't attached to the doc yet here).
+      setTimeout(function () {
+        ta.focus();
+        var n = ta.value.length;
+        try { ta.setSelectionRange(n, n); } catch (e) { /* not all input types support this */ }
+      }, 0);
+    } else {
+      var md = renderCommentMarkdown(text);
+      var body = md != null
+        ? h("div", { "class": "rd-bubble-text rd-md", html: md })
+        : h("div", { "class": "rd-bubble-text", text: text });   // parse failed -> safe plain text
+      if (key) body.dataset.mkey = key;
+      kids.push(body);
+      if (editPid) {
+        kids.push(h("button", {
+          "class": "rd-bubble-edit", type: "button", text: "編集",
+          title: "送信前に編集", "aria-label": "コメントを編集",
+          on: { click: function (e) { e.stopPropagation(); startEditPending(editPid); } }
+        }));
+      }
+    }
+
+    var cls = "rd-bubble " + (role === "claude" ? "claude" : "user")
+      + (isDraft ? " draft" : "") + (isEditing ? " editing" : "");
+    return h("div", { "class": cls }, kids);
+  }
+
+  // ===================================================================
+  // editing a pending (not-yet-sent) comment
+  // ===================================================================
+  function startEditPending(pid) {
+    state.editingPid = pid;
+    refreshView();
+  }
+
+  function cancelEditPending() {
+    state.editingPid = null;
+    refreshView();
+  }
+
+  function commitEditPending(pid, value) {
+    var text = (value || "").trim();
+    if (!text) return;   // refuse an empty save; stay in edit mode rather than blank the draft
+    for (var i = 0; i < state.pending.length; i++) {
+      if (state.pending[i].pid === pid) { state.pending[i].text = text; break; }
+    }
+    state.editingPid = null;
+    refreshView();
   }
 
   function anchorKindLabel(a) {
@@ -329,5 +403,6 @@
 
   function removePending(pid) {
     state.pending = state.pending.filter(function (p) { return p.pid !== pid; });
+    if (state.editingPid === pid) state.editingPid = null;
     refreshView();
   }
