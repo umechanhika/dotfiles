@@ -6,6 +6,9 @@
   // ===================================================================
   function sendAll() {
     if (state.pending.length === 0) return;
+    // Don't silently drop an in-progress edit: its keystrokes live only in the
+    // textarea DOM until "保存" commits them into state.pending[].text.
+    if (state.editingPid) { toast("編集中のコメントを保存してから送信してください"); return; }
     elSend.disabled = true;
     elSendNote.textContent = "送信中…";
     var items = state.pending.map(function (p) {

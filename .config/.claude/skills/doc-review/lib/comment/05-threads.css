@@ -40,6 +40,33 @@
   border: none; background: none; color: #b00; cursor: pointer; font-size: 0.9rem; line-height: 1;
 }
 
+/* editing a pending (not-yet-sent) comment in place */
+.rd-bubble-edit {
+  display: block; margin-top: 2px;
+  border: none; background: none; color: var(--rd-accent);
+  font-size: 0.76rem; cursor: pointer; padding: 4px 0 0;
+}
+.rd-bubble-edit-input {
+  width: 100%; box-sizing: border-box; display: block;
+  border: 1px solid #ccc; border-radius: 6px; background: var(--rd-bg); color: inherit;
+  resize: vertical; min-height: 60px; max-height: 240px;
+  padding: 6px 8px; font-size: 0.84rem; line-height: 1.5; font-family: inherit;
+}
+.rd-bubble-edit-input:focus {
+  outline: none; border-color: var(--rd-accent); box-shadow: 0 0 0 2px rgba(74,144,217,.15);
+}
+.rd-bubble-edit-actions { display: flex; gap: 8px; margin-top: 6px; }
+.rd-bubble-edit-save {
+  border: none; border-radius: 6px; padding: 4px 12px; font-size: 0.78rem; cursor: pointer;
+  background: var(--rd-accent); color: #fff;
+}
+.rd-bubble-edit-save:hover { background: var(--rd-accent-d); }
+.rd-bubble-edit-cancel {
+  border: 1px solid #ccc; background: none; border-radius: 6px; padding: 4px 12px;
+  font-size: 0.78rem; cursor: pointer; color: #555;
+}
+.rd-bubble-edit-cancel:hover { background: #f1f3f5; }
+
 /* ---- markdown rendered inside a comment bubble ---- */
 .rd-md { white-space: normal; font-size: 0.875rem; line-height: 1.55; }
 .rd-md > *:first-child { margin-top: 0; }

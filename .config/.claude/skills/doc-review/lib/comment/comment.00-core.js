@@ -39,7 +39,8 @@
     draftBlock: null,
     hovered: null,
     toastTimer: null,
-    expanded: {}         // message keys the user manually expanded (survives re-render)
+    expanded: {},        // message keys the user manually expanded (survives re-render)
+    editingPid: null     // pid of the pending (unsent) comment currently being edited, or null
   };
 
   // ---- DOM refs (set once in start) ----

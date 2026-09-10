@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- single comment-bubble silhouette (no page/document shape, so it doesn't
+       read as a generic "doc" icon at 16px) with a checkmark inside, standing
+       for "reviewed comment". Sized to nearly fill the 16x16 canvas (tail
+       included) so it stays legible at favicon scale. -->
+  <rect x="0.4" y="0.4" width="15.2" height="10.2" rx="2.4" fill="#4a90d9"/>
+  <path d="M4.2 10.6 L4.2 15.4 L8.6 10.6 Z" fill="#4a90d9"/>
+  <path d="M3 5.6 L6.8 9.2 L13 2.2" fill="none" stroke="#ffffff"
+        stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -84,6 +84,35 @@ html, body {
 #rd-content table { border-collapse: collapse; }
 #rd-content th, #rd-content td { border: 1px solid #ddd; padding: 6px 10px; }
 #rd-content blockquote { border-left: 4px solid #ddd; margin: 0; padding-left: 16px; color: #555; }
+/* comment.02-render.js wraps a parent list item's own content in this div
+   when it has a nested sub-list (isolateOwnContent()), so the comment
+   outline only ever hugs the parent's own line. outline-offset (02-markers.
+   css) draws the outline OUTSIDE the box, so two adjacent boxes' outlines
+   don't naturally land on the same line. This gap is tuned so they do: with
+   outline-offset O and outline-width W (both 2px here), the parent's
+   bottom-outline band sits at [edge+O, edge+O+W] below it, and the child's
+   top-outline band sits at [edge-O-W, edge-O] above it; those two bands
+   coincide exactly when the gap between the boxes is 2*O + W (= 6px) — one
+   shared line instead of two close, slightly-offset ones. Only exists on
+   items that DO have a nested list, so plain (non-nested) list rhythm is
+   unaffected. */
+#rd-content .rd-li-own { margin-bottom: 6px; }
+/* front matter block (comment.02-render.js carves it out before the lexer
+   sees it, so it never becomes a giant heading) — styled as an inert,
+   de-emphasized panel, distinct from a fenced code block */
+#rd-content .rd-frontmatter {
+  background: var(--rd-code-bg);
+  border-left: 3px dotted #b7bfc9;
+  border-radius: 4px;
+  padding: 10px 14px;
+  color: #666;
+  /* <pre> defaults to the UA monospace font, which renders visually smaller
+     than the body's proportional font even at the same font-size. This isn't
+     code, so match the body's font instead. */
+  font-family: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 
 /* ---------- HTML preview iframe ----------
    HTML targets render here so the file's own <head> CSS applies in an isolated
