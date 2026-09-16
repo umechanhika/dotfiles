@@ -120,7 +120,14 @@ def merge_anchor(anchor: dict, update: dict) -> None:
     if not isinstance(anchor, dict) or not isinstance(update, dict):
         return
     touched = False
-    for key in ("block_raw", "text", "selected_text", "block_index"):
+    for key in (
+        "block_raw", "text", "selected_text", "block_index",
+        # Table-cell anchors only (anchor.type == "cell", or a range anchor
+        # inside a cell): block_raw for a cell is the row's raw source line,
+        # so col/row/section pin down which cell on that line, and table_raw/
+        # header_text are context for Claude, not part of the browser's match.
+        "table_raw", "row", "col", "section", "header_text",
+    ):
         if key in update:
             anchor[key] = update[key]
             touched = True

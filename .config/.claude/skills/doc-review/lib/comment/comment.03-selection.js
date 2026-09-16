@@ -5,7 +5,7 @@
   // hover highlight
   // ===================================================================
   function onHover(e) {
-    var target = blockOf(e.target);
+    var target = blockOf(e.target, e);
     if (target === state.hovered) return;
     clearHover();
     if (target && target !== rdRoot()) {
@@ -17,7 +17,23 @@
     if (state.hovered) { state.hovered.classList.remove("rd-hover"); state.hovered = null; }
   }
 
-  function blockOf(node) {
+  // A code block has no separate DOM node for "the scrollbar" the way a table
+  // does (blockOf()'s .rd-table-scroll check below) — the <pre> IS both the
+  // commentable target and the scrolling box, with no element boundary to
+  // tell "over the scrollbar" from "over the code" apart by structure alone.
+  // Geometry is the only signal available: a reserved (non-overlay) scrollbar
+  // occupies exactly `offsetHeight - clientHeight` px along the bottom edge.
+  // On a system with zero-footprint overlay scrollbars this comes out to 0,
+  // so the check is simply never true there — it falls back to the old
+  // (whole-block) behaviour instead of guessing at a boundary it can't see.
+  function isOverElementScrollbar(el, clientY) {
+    if (!el || el.scrollWidth <= el.clientWidth) return false;
+    var reserved = el.offsetHeight - el.clientHeight;
+    if (reserved <= 0) return false;
+    return clientY >= el.getBoundingClientRect().top + el.clientHeight;
+  }
+
+  function blockOf(node, e) {
     var root = rdRoot();
     if (!node || node === root) return null;
     if (isHtml()) {
@@ -39,6 +55,24 @@
     }
     var blk = node.nodeType === 3 ? node.parentElement : node;
     while (blk && blk !== root && !(blk.dataset && blk.dataset.srcblock)) {
+      // .rd-table-scroll is a layout-only wrapper we inject purely to carry
+      // overflow-x (renderTableBlock in comment.02-render.js) — it never
+      // carries a data-srcblock itself, so the climb above would otherwise
+      // sail past it up to the surrounding .rd-table-block and treat the hit
+      // as "hovering/clicking the whole table". But the *only* real content
+      // under this wrapper is the <table> and its cells, which — when hit —
+      // resolve to their own data-srcblock before the climb ever reaches
+      // here. So landing on this wrapper itself means the cursor is over
+      // space with no cell under it: the table's own horizontal scrollbar, or
+      // the empty margin beside a table narrower than the viewport. Neither
+      // is a click target — "comment on the whole table" now has a single,
+      // dedicated target instead (the band above the table; see 01-base.css).
+      if (blk.classList && blk.classList.contains("rd-table-scroll")) return null;
+      // The <pre> itself is the scrolling box (its data-srcblock now lives on
+      // the non-clipping .rd-pre-block wrapper around it — see
+      // comment.02-render.js), so this has to be caught here, on the way past
+      // <pre>, using the same geometry check as the hover path.
+      if (blk.tagName === "PRE" && e && isOverElementScrollbar(blk, e.clientY)) return null;
       blk = blk.parentElement;
     }
     return blk && blk.dataset && blk.dataset.srcblock !== undefined ? blk : null;
@@ -47,17 +81,52 @@
   // ===================================================================
   // selecting / clicking → build anchor → open popover
   // ===================================================================
+  // A horizontal scrollbar (table/code block) fires no `mousedown` on the DOM
+  // (the browser's own scrollbar chrome eats it) but DOES deliver a `mouseup`
+  // to the scrolled element once the drag ends. That mouseup used to be
+  // indistinguishable from "clicked this block" — no text gets selected by a
+  // scrollbar drag, so `sel.isCollapsed` was true either way, and a comment
+  // popover opened on every scroll. Recording the mousedown point lets us tell
+  // the two apart: a real click always has a matching mousedown right before
+  // it, at (near) the same point.
+  var mouseDownPoint = null;
+  var DRAG_THRESHOLD_PX = 4;
+
+  function onMouseDown(e) {
+    mouseDownPoint = e.button === 0 ? { x: e.clientX, y: e.clientY } : null;
+  }
+
   function onMouseUp(e) {
     // Clicking a marker badge is "jump to comment", not "comment on this block".
     if (e.target.closest && e.target.closest(".rd-marker")) return;
+    var down = mouseDownPoint;
+    mouseDownPoint = null;
     setTimeout(function () {
       var sel = rdDoc().getSelection();
       var text = sel && !sel.isCollapsed ? sel.toString() : "";
       if (text && text.trim() && withinContent(sel)) {
         openRangeComment(sel);
-      } else {
-        var blk = blockOf(e.target);
-        if (blk && blk !== rdRoot()) openBlockComment(blk);
+        return;
+      }
+      // No text selection: only treat this as "clicked this block" when it was
+      // actually a click — i.e. a mousedown we saw ourselves, close to where the
+      // mouse came up. A scrollbar drag (no mousedown reaches the DOM) or a
+      // large drag that ended up not selecting text (e.g. released outside the
+      // content) is ignored instead of guessed at.
+      var blk = null;
+      if (down) {
+        var dx = e.clientX - down.x, dy = e.clientY - down.y;
+        if (dx * dx + dy * dy <= DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) blk = blockOf(e.target, e);
+      }
+      if (blk && blk !== rdRoot()) {
+        openBlockComment(blk);
+      } else if (!pop.hidden) {
+        // Landed somewhere that isn't a commentable target (a scrollbar, the
+        // gutter beside a table, anywhere blockOf() refuses) while a draft
+        // popover was open. Leaving that popover sitting there — still aimed
+        // at wherever it was opened for — reads as if the click did nothing;
+        // closing it instead makes "nowhere to comment here" unambiguous.
+        closePopover();
       }
     }, 0);
   }
@@ -80,6 +149,16 @@
         prefix: "", suffix: "", occurrence: 0
       };
       fillContext(anchor, host, range, selectedText);
+    } else if (blk && blk.dataset.rdcol !== undefined) {
+      var cellA = cellAnchor(blk);
+      anchor = {
+        type: "range", kind: "markdown", selected_text: selectedText,
+        block_index: cellA.block_index, block_raw: cellA.block_raw,
+        table_raw: cellA.table_raw, row: cellA.row, col: cellA.col,
+        section: cellA.section, header_text: cellA.header_text,
+        prefix: "", suffix: "", occurrence: 0
+      };
+      fillContext(anchor, blk, range, selectedText);
     } else {
       var bi = blk ? parseInt(blk.dataset.srcblock, 10) : -1;
       anchor = {
@@ -101,6 +180,8 @@
         css_path: cssPath(blk), text: excerpt(blk.textContent.trim(), 200),
         outer_html_excerpt: excerpt(blk.outerHTML, 400)
       };
+    } else if (blk.dataset.rdcol !== undefined) {
+      anchor = cellAnchor(blk);
     } else {
       var bi = parseInt(blk.dataset.srcblock, 10);
       anchor = {
@@ -113,6 +194,32 @@
     }
     state.draftAnchor = anchor; state.draftBlock = blk;
     showPopover(describeAnchor(anchor), toParentRect(blk.getBoundingClientRect()));
+  }
+
+  // A table cell has no `raw` of its own (marked's table tokenizer only keeps
+  // {text, tokens} per cell — see comment.02-render.js's renderTableBlock), so
+  // instead of a per-cell snippet the content-match key (block_raw) is the raw
+  // source line the cell's row came from. row/col/section pin down WHICH cell
+  // on that line once anchorToBlock re-resolves it (comment.05-markers.js);
+  // table_raw + header_text are context for Claude, not part of the match.
+  function cellAnchor(cell) {
+    var bi = parseInt(cell.dataset.srcblock, 10);
+    var tableBlock = cell.closest(".rd-table-block");
+    var tableIdx = tableBlock ? parseInt(tableBlock.dataset.srcblock, 10) : -1;
+    var headerText = cell.textContent;
+    if (cell.dataset.rdsection === "body") {
+      var theadRow = cell.closest("table").querySelector("thead tr");
+      var headerCell = theadRow ? theadRow.children[parseInt(cell.dataset.rdcol, 10)] : null;
+      headerText = headerCell ? headerCell.textContent : "";
+    }
+    return {
+      type: "cell", kind: "markdown",
+      block_index: bi, block_raw: state.blockRaws[bi] || "",
+      table_raw: tableIdx >= 0 ? (state.blockRaws[tableIdx] || "") : "",
+      row: parseInt(cell.dataset.rdrow, 10), col: parseInt(cell.dataset.rdcol, 10),
+      section: cell.dataset.rdsection, header_text: headerText.trim(),
+      tag: cell.tagName.toLowerCase(), text: excerpt(cell.textContent.trim(), 200)
+    };
   }
 
   function fillContext(anchor, blockEl, range, selectedText) {
@@ -137,6 +244,11 @@
   }
 
   function describeAnchor(a) {
+    if (a.type === "cell") {
+      var col = a.header_text || ("列" + (a.col + 1));
+      var loc = a.section === "header" ? col : (col + " / " + (a.row + 1) + "行目");
+      return "&lt;" + (a.tag || "cell") + "&gt; " + escapeHtml(loc) + "：" + escapeHtml(a.text || "");
+    }
     if (a.type === "block" || a.type === "element") {
       return "&lt;" + (a.tag || "block") + "&gt; " + escapeHtml(a.text || "");
     }

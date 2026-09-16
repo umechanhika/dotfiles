@@ -40,3 +40,16 @@
 .rd-marker:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
 .rd-stale { outline-color: #b0b0b0 !important; }
 .rd-stale .rd-marker { background: #b0b0b0; }
+
+/* A cell sits inside .rd-table-scroll (overflow-x: auto — 01-base.css), which
+   clips anything painted outside its own box. The default marker bleeds left
+   by --rd-gutter, which would get cut off at the table's left/right scroll
+   edges, so cell markers are pinned inside the cell's own top-right corner
+   instead. The cell reserves the same width as padding so the badge never
+   overlaps its text. */
+#rd-content th.rd-commented, #rd-content td.rd-commented { padding-right: 22px; }
+#rd-content th.rd-commented > .rd-marker, #rd-content td.rd-commented > .rd-marker {
+  top: 1px; right: 1px; left: auto;
+  min-width: 16px; height: 16px;
+  font-size: 0.62rem;
+}

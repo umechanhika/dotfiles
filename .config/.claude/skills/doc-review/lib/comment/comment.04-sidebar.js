@@ -393,11 +393,17 @@
     if (!a) return "";
     if (a.type === "range") return "テキスト選択";
     if (a.type === "block") return "ブロック";
+    if (a.type === "cell") return "セル";
     return "要素";
   }
   function anchorSnippet(a) {
     if (!a) return "";
     if (a.type === "range") return "“" + (a.selected_text || "") + "”";
+    if (a.type === "cell") {
+      var col = a.header_text || ("列" + (a.col + 1));
+      var loc = a.section === "header" ? col : (col + " / " + (a.row + 1) + "行目");
+      return loc + "： " + (a.text || "");
+    }
     return "<" + (a.tag || "block") + "> " + (a.text || "");
   }
 

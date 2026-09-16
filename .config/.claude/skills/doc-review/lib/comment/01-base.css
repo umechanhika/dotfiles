@@ -83,6 +83,29 @@ html, body {
 #rd-content .rd-table-scroll table { width: max-content; max-width: none; }
 #rd-content table { border-collapse: collapse; }
 #rd-content th, #rd-content td { border: 1px solid #ddd; padding: 6px 10px; }
+/* The band above the table is the only part of .rd-table-block NOT covered by
+   a <th>/<td> (those now own the click target for "comment on this cell"), so
+   it's what's left to click for "comment on the whole table". Labelled only
+   while hovered/commented so an untouched table doesn't grow a mystery strip. */
+#rd-content .rd-table-block { position: relative; padding-top: 20px; }
+#rd-content .rd-table-block.rd-hover::before,
+#rd-content .rd-table-block.rd-commented::before {
+  content: "表全体";
+  position: absolute;
+  top: 0; left: 0;
+  font-size: 0.72rem;
+  color: var(--rd-draft);
+  line-height: 20px;
+}
+/* Cells sit inside the scrolling .rd-table-scroll box, and browsers clip an
+   outline at an ancestor's overflow boundary — the default positive
+   outline-offset (02-markers.css) would get cut off at the left/right edges
+   of a horizontally-scrolled table. Drawing the outline inside the cell's own
+   border avoids relying on that overflow at all. */
+#rd-content th.rd-hover, #rd-content td.rd-hover,
+#rd-content th.rd-commented, #rd-content td.rd-commented {
+  outline-offset: -2px;
+}
 #rd-content blockquote { border-left: 4px solid #ddd; margin: 0; padding-left: 16px; color: #555; }
 /* comment.02-render.js wraps a parent list item's own content in this div
    when it has a nested sub-list (isolateOwnContent()), so the comment
