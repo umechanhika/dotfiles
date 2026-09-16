@@ -263,6 +263,16 @@ def reply_cmd(args: argparse.Namespace) -> int:
         anchor_update["selected_text"] = args.anchor_selected_text
     if args.anchor_text is not None:
         anchor_update["text"] = args.anchor_text
+    if args.anchor_table_raw is not None:
+        anchor_update["table_raw"] = args.anchor_table_raw
+    if args.anchor_row is not None:
+        anchor_update["row"] = args.anchor_row
+    if args.anchor_col is not None:
+        anchor_update["col"] = args.anchor_col
+    if args.anchor_section is not None:
+        anchor_update["section"] = args.anchor_section
+    if args.anchor_header_text is not None:
+        anchor_update["header_text"] = args.anchor_header_text
     if args.anchor_gone:
         anchor_update["gone"] = True
     if anchor_update:
@@ -476,6 +486,18 @@ def build_parser() -> argparse.ArgumentParser:
                     help="range comments: the new selected phrase after the edit")
     rp.add_argument("--anchor-text", dest="anchor_text",
                     help="optional updated display snippet for the anchor")
+    # Table-cell anchors only (see references/anchoring.md). block_raw for a
+    # cell is the row's raw source line; these pin down which cell on it.
+    rp.add_argument("--anchor-table-raw", dest="anchor_table_raw",
+                    help="cell comments: the FULL raw markdown of the table this comment's cell is in")
+    rp.add_argument("--anchor-row", dest="anchor_row", type=int,
+                    help="cell comments: 0-based data-row index after the edit (-1 for the header row)")
+    rp.add_argument("--anchor-col", dest="anchor_col", type=int,
+                    help="cell comments: 0-based column index after the edit")
+    rp.add_argument("--anchor-section", dest="anchor_section", choices=["header", "body"],
+                    help="cell comments: which part of the table the cell is in after the edit")
+    rp.add_argument("--anchor-header-text", dest="anchor_header_text",
+                    help="cell comments: the (possibly renamed) column header text")
     rp.add_argument("--anchor-gone", dest="anchor_gone", action="store_true",
                     help="the commented region was deleted: show no marker (sidebar notes it)")
     rp.set_defaults(func=reply_cmd)

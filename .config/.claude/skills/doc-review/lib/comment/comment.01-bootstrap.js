@@ -30,7 +30,23 @@
 
     elContent.addEventListener("mousemove", onHover);
     elContent.addEventListener("mouseleave", clearHover);
+    elContent.addEventListener("mousedown", onMouseDown);
     elContent.addEventListener("mouseup", onMouseUp);
+    // A click inside the content pane that lands on nothing commentable
+    // already closes an open draft (onMouseUp, comment.03-selection.js). A
+    // click that never reaches elContent at all — the sidebar, the topbar,
+    // the page margin around #rd-content — doesn't, since nothing is
+    // listening for mousedown out there. This is that catch-all: it only
+    // acts when the target is neither the popover itself (its own controls
+    // handle their own clicks) nor inside the content pane (elContent's
+    // listeners above already decided what to do with those).
+    document.addEventListener("mousedown", function (e) {
+      if (pop.hidden) return;
+      if (e.target.closest && e.target.closest("#rd-popover")) return;
+      if (elContent.contains(e.target)) return;
+      if (e.target === elFrame) return;   // HTML mode: the iframe's own listeners decide
+      closePopover();
+    });
 
     initSidebarResize();
 

@@ -80,6 +80,7 @@
     // each load means old listeners are discarded with it — no leak.
     root.addEventListener("mousemove", onHover);
     root.addEventListener("mouseleave", clearHover);
+    doc.addEventListener("mousedown", onMouseDown);
     doc.addEventListener("mouseup", onMouseUp);
     // Keyboard events don't cross the iframe boundary, so when focus sits inside
     // the frame the global shortcuts (Esc, ⌘⇧Enter send) would be missed. These
@@ -153,6 +154,10 @@
         idx += renderListBlock(tok, idx, links, scratch);
         return;
       }
+      if (tok.type === "table") {
+        idx += renderTableBlock(tok, idx, links, scratch);
+        return;
+      }
       var toks = [tok];
       toks.links = links;
       scratch.innerHTML = marked.parser(toks);
@@ -160,12 +165,16 @@
       if (children.length === 0) return;
       children.forEach(function (el) {
         var blockEl = el;
-        if (el.tagName === "TABLE") {
-          // Wrap tables so the commentable block (= marker host) stays a
-          // non-scrolling element, while the inner div provides horizontal
-          // scroll. Putting overflow on the marker host would clip the marker.
-          var scroller = h("div", { "class": "rd-table-scroll" }, [el]);
-          blockEl = h("div", { "class": "rd-table-block" }, [scroller]);
+        if (el.tagName === "PRE") {
+          // A fenced code block's own overflow-x: auto (01-base.css) makes it
+          // a clipping box, same as any other `overflow != visible` element —
+          // the marker badge (position: absolute, negative top/left — see
+          // 02-markers.css) is a CHILD of the marker host, so if the host is
+          // the clipping box itself, the badge gets clipped away invisibly
+          // rather than bleeding into the gutter. A plain wrapper (no
+          // overflow of its own) becomes the marker host instead, exactly the
+          // same fix as the table's .rd-table-block/.rd-table-scroll split.
+          blockEl = h("div", { "class": "rd-pre-block" }, [el]);
         }
         blockEl.dataset.srcblock = String(idx);
         elContent.appendChild(blockEl);
@@ -268,4 +277,92 @@
     while (li.firstChild !== firstNested) own.appendChild(li.firstChild);
     li.insertBefore(own, firstNested);
     return own;
+  }
+
+  // Render one top-level "table" token. The whole table stays block `idx` —
+  // exactly the same wrapping as before per-cell comments existed — so old
+  // saved anchors pointing at the whole table still resolve, and the padded
+  // band above the table (rd-table-block, see 01-base.css) stays a valid
+  // click target for "comment on the whole table". On top of that, tag each
+  // rendered <th>/<td> with its own srcblock, row/col/section, so clicking a
+  // cell targets just that cell (blockOf() already prefers the innermost
+  // tagged ancestor — same mechanism as per-item list comments).
+  //
+  // A table cell has no `raw` of its own (unlike a list item) — marked's
+  // table tokenizer only keeps `{text, tokens}` per cell — so instead of
+  // reconstructing a single cell's markdown we key each cell to the raw
+  // source line of the row it lives in (header row for <th>, its own line
+  // for <td>). That's what makes it possible to reconstruct a cell's real
+  // `raw` on paper.
+  //
+  // Returns how many srcblock indices this table consumed, mirroring
+  // renderListBlock so the caller can advance `idx` past them.
+  function renderTableBlock(tok, idx, links, scratch) {
+    var toks = [tok];
+    toks.links = links;
+    scratch.innerHTML = marked.parser(toks);
+    var tableEl = scratch.firstElementChild;
+    if (!tableEl) return 0;
+    var scroller = h("div", { "class": "rd-table-scroll" }, [tableEl]);
+    var blockEl = h("div", { "class": "rd-table-block" }, [scroller]);
+    blockEl.dataset.srcblock = String(idx);
+    elContent.appendChild(blockEl);
+    state.blockRaws[idx] = tok.raw || "";
+
+    var lines = tableRawLines(tok.raw, tok.rows.length);
+    var theadRow = tableEl.querySelector("thead tr");
+    var bodyRows = tableEl.querySelectorAll("tbody tr");
+    var ok = lines && theadRow && theadRow.children.length === tok.header.length &&
+      bodyRows.length === tok.rows.length;
+    if (ok) {
+      for (var r = 0; r < bodyRows.length; r++) {
+        if (bodyRows[r].children.length !== tok.rows[r].length) { ok = false; break; }
+      }
+    }
+    if (!ok) {
+      console.error(
+        "doc-review: table cell count mismatch — commenting on individual " +
+        "cells is unavailable for this table; the whole table is still commentable.",
+        tok.raw
+      );
+      toast("表のセル分割に失敗しました（表全体へのコメントのみ利用できます）");
+      return 1;
+    }
+
+    var headerLine = lines[0];
+    var dataLines = lines.slice(2);
+    var base = idx + 1, n = 0;
+    Array.prototype.forEach.call(theadRow.children, function (cell, col) {
+      tagCell(cell, base + n, -1, col, "header", headerLine);
+      n++;
+    });
+    Array.prototype.forEach.call(bodyRows, function (rowEl, r) {
+      Array.prototype.forEach.call(rowEl.children, function (cell, col) {
+        tagCell(cell, base + n, r, col, "body", dataLines[r]);
+        n++;
+      });
+    });
+    return 1 + n;
+  }
+
+  function tagCell(cell, srcblock, row, col, section, rawLine) {
+    cell.dataset.srcblock = String(srcblock);
+    cell.dataset.rdrow = String(row);
+    cell.dataset.rdcol = String(col);
+    cell.dataset.rdsection = section;
+    state.blockRaws[srcblock] = rawLine;
+  }
+
+  // Split a table's raw markdown into its source lines (header / delimiter /
+  // one per data row) so each cell can be keyed to the line it came from.
+  // GFM table rows are always exactly one physical line each — a cell can't
+  // contain a literal newline — so this is a plain split, not a parse. If the
+  // line count doesn't match the row count marked collected, something about
+  // this table isn't a plain GFM table (or trailing whitespace confused the
+  // split): return null and let the caller fall back to whole-table-only
+  // rather than mis-key a cell to the wrong line.
+  function tableRawLines(raw, rowCount) {
+    var lines = (raw || "").split("\n");
+    while (lines.length && lines[lines.length - 1] === "") lines.pop();
+    return lines.length === 2 + rowCount ? lines : null;
   }

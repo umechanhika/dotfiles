@@ -42,7 +42,7 @@
   // null and show NO marker — pointing nowhere is better than pointing wrong.
   function anchorToBlock(a) {
     if (!a || a.gone) return null;
-    if (a.kind === "markdown") return markdownBlock(a);
+    if (a.kind === "markdown") return typeof a.col === "number" ? markdownCell(a) : markdownBlock(a);
     if (a.kind === "html") return htmlElement(a);
     return null;
   }
@@ -60,6 +60,34 @@
       // Identical blocks (e.g. several "## 概要") are inherently ambiguous, so
       // here — and only here — fall back to the stored index as a hint and pick
       // the nearest surviving match.
+      var hint = typeof a.block_index === "number" ? a.block_index : idx;
+      var best = Infinity;
+      matches.forEach(function (m) {
+        var d = Math.abs(m - hint);
+        if (d < best) { best = d; idx = m; }
+      });
+    }
+    return rdRoot().querySelector('[data-srcblock="' + idx + '"]');
+  }
+
+  // A cell's block_raw is the raw source line of the *row* it lives in (see
+  // comment.02-render.js's renderTableBlock — a cell has no raw of its own),
+  // so several cells across a row share the same block_raw. `col` narrows a
+  // content match down to the one cell; `block_index` remains the tiebreak
+  // for the rarer case of two rows with byte-identical content (e.g. two
+  // rows that both read "0001 | ... | 0020") landing on the same column.
+  function markdownCell(a) {
+    var wanted = normRaw(a.block_raw);
+    if (!wanted) return null;
+    var matches = [];
+    for (var i = 0; i < state.blockRaws.length; i++) {
+      if (normRaw(state.blockRaws[i]) !== wanted) continue;
+      var el = rdRoot().querySelector('[data-srcblock="' + i + '"]');
+      if (el && el.dataset.rdcol !== undefined && parseInt(el.dataset.rdcol, 10) === a.col) matches.push(i);
+    }
+    if (matches.length === 0) return null;   // row (or the cell's column) is gone -> no marker
+    var idx = matches[0];
+    if (matches.length > 1) {
       var hint = typeof a.block_index === "number" ? a.block_index : idx;
       var best = Infinity;
       matches.forEach(function (m) {
