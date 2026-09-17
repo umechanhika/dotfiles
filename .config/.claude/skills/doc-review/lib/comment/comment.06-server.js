@@ -106,7 +106,19 @@
         setStatus("更新を反映しました");
         toast("Claude がドキュメントを更新しました");
         announce("Claude がドキュメントを更新しました");
-        applySource(sd, true);     // re-render body, keep scroll position
+        applySource(sd, true);     // updates state.meta; renders normally for now
+        // The body itself changed — this is Claude's edit landing, not just a
+        // reply (the else branch below never reaches this point, so a
+        // reply-only update can't trigger it). Pull the fresh baseline (this
+        // submit's pre-edit snapshot) and switch to diff mode automatically,
+        // overriding the normal render applySource just did, regardless of
+        // which mode the reader was in before.
+        fetchBaseline().then(function () {
+          if (!diffAvailable()) return;   // baseline fetch failed or still none — keep the normal render applySource already drew
+          state.diffMode = true;
+          renderDiffView();
+          updateDiffToggleUI();
+        });
       } else {
         // Reply / status change only: no body re-parse, just refresh markers + sidebar.
         setStatus("返信が届きました");

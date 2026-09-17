@@ -152,6 +152,7 @@ def run_server(args: argparse.Namespace) -> int:
     work_dir = os.path.realpath(os.path.expanduser(work))
     os.makedirs(work_dir, exist_ok=True)
     inbox_path = os.path.join(work_dir, "inbox.jsonl")
+    baseline_path = os.path.join(work_dir, "baseline.json")
 
     # Publish runtime config so the route mixins (dr_routes_get/post) can read
     # it via dr_config.* without importing serve.py (which would be circular).
@@ -163,6 +164,7 @@ def run_server(args: argparse.Namespace) -> int:
         LIB_DIR=lib_dir,
         WORK_DIR=work_dir,
         INBOX_PATH=inbox_path,
+        BASELINE_PATH=baseline_path,
     )
     dr_store.configure(os.path.join(work_dir, "threads.json"))
     dr_store.load()  # restore past threads if this file was reviewed before

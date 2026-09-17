@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import dr_config
 import dr_store
-from dr_util import _now
+from dr_util import _now, atomic_write_json
 
 
 class PostRoutes:
@@ -43,6 +43,17 @@ class PostRoutes:
         items = payload.get("items")
         if not isinstance(items, list) or not items:
             return self._send_error_json(400, "no items")
+
+        # Capture the pre-edit content now, before any thread-store mutation,
+        # so the diff-mode baseline is "the file as Claude is about to read
+        # it" for this batch. If the target can't be read, abort before
+        # touching the store at all — no thread should be created against a
+        # baseline we failed to save.
+        try:
+            with open(dr_config.TARGET_PATH, "r", encoding="utf-8") as fh:
+                baseline_content = fh.read()
+        except OSError as exc:
+            return self._send_error_json(500, "cannot read target for baseline: %s" % exc)
 
         inbox_items = []
         with dr_store.LOCK:
@@ -93,6 +104,18 @@ class PostRoutes:
             "work_dir": dr_config.WORK_DIR,
             "items": inbox_items,
         }
+
+        # Persist the pre-edit snapshot as the new diff-mode baseline (this
+        # batch's content becomes "the previous version" once Claude's edit
+        # lands). Same work-dir, same locking discipline as append_jsonl
+        # below: dr_store.LOCK serialises all writers against this work dir.
+        baseline = {"batch_id": batch["batch_id"], "ts": batch["ts"], "content": baseline_content}
+        try:
+            with dr_store.LOCK:
+                atomic_write_json(dr_config.BASELINE_PATH, baseline)
+        except OSError as exc:
+            return self._send_error_json(500, "cannot write baseline: %s" % exc)
+
         try:
             dr_store.append_jsonl(dr_config.INBOX_PATH, batch)
         except OSError as exc:

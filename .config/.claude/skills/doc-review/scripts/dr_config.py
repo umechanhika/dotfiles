@@ -29,6 +29,7 @@ TARGET_EXT = ""           # "md" | "markdown" | "html" | "htm"
 LIB_DIR = ""              # absolute path of the bundled lib/ directory
 WORK_DIR = ""             # absolute path of the working dir
 INBOX_PATH = ""           # work-dir/inbox.jsonl  (Monitor trigger)
+BASELINE_PATH = ""        # work-dir/baseline.json (diff-mode "previous version" snapshot)
 
 # Activity state: updated on every request, read by the idle watcher.
 _last_activity = time.time()

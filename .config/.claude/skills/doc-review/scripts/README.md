@@ -7,11 +7,11 @@
 | 責務 | ファイル |
 | --- | --- |
 | エントリポイント。`Handler`（応答ヘルパ `_send_json`/`_send_bytes`/`_read_body` 等のみ）・`run_server`・`_watcher`・`reply`/`reply-batch`/`stop` サブコマンド・URL/work-dir 解決共通化（`_resolve_base_url`/`_resolve_work_dir`）・ブラウザタブ制御（`_close_browser_tabs`/`_default_browser_bundle_id`）・CLI(`build_parser`/`main`) | `serve.py` |
-| GET ルート mixin（`do_GET`・`_serve_lib_file`/`_serve_raw`/`_serve_source`/`_serve_threads`/`_serve_rev`）。`class GetRoutes` | `dr_routes_get.py` |
+| GET ルート mixin（`do_GET`・`_serve_lib_file`/`_serve_raw`/`_serve_source`/`_serve_threads`/`_serve_rev`/`_serve_baseline`）。`class GetRoutes` | `dr_routes_get.py` |
 | POST ルート mixin（`do_POST`・`_submit`/`_reply`/`_reply_batch`/`_resolve`）。`class PostRoutes` | `dr_routes_post.py` |
-| ランタイム設定＋活動状態（`TARGET_PATH`/`LIB_DIR`/`WORK_DIR`/`INBOX_PATH` 等・`configure()`・`touch()`/`last_activity()`） | `dr_config.py` |
+| ランタイム設定＋活動状態（`TARGET_PATH`/`LIB_DIR`/`WORK_DIR`/`INBOX_PATH`/`BASELINE_PATH` 等・`configure()`・`touch()`/`last_activity()`） | `dr_config.py` |
 | スレッドストア（`STORE`・`RLock`=`LOCK`・`configure()`/`store()`/`load`/`save`/`find_thread`/`merge_anchor`・`next_batch_id()`・`append_jsonl()`） | `dr_store.py` |
-| 純粋ヘルパー（`_now`/`_kind_for_ext`/`default_work_dir`/`_content_type_for`、状態なし） | `dr_util.py` |
+| 純粋ヘルパー（`_now`/`_kind_for_ext`/`default_work_dir`/`_content_type_for`/`atomic_write_json`、状態なし） | `dr_util.py` |
 
 `Handler` は `class Handler(GetRoutes, PostRoutes, BaseHTTPRequestHandler)`。ルート mixin の
 メソッドは `self._send_json(...)` 等を実行時 MRO 経由で解決するため、mixin 側に応答ヘルパの

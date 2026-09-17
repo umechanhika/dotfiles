@@ -138,6 +138,12 @@
   function reattachAll(o) {
     o = o || computeOrder();
     clearMarkers();
+    // Diff-mode content (comment.09-diffview.js) carries no data-srcblock —
+    // it isn't a commentable target — so there is nothing here to pin a
+    // marker to. Explicit early return rather than relying on every anchor
+    // resolver happening to come back empty: clearMarkers() above still
+    // removes any markers left over from before the mode switch.
+    if (state.diffMode) return;
     o.order.forEach(function (e) {
       if (!e.located || !e.block) return;   // unplaceable (deleted/moved-away) -> no marker
       var cls = e.kind === "draft" ? "draft" : (e.ref.status === "answered" ? "answered" : null);

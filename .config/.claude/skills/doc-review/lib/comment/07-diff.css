@@ -1,0 +1,130 @@
+
+/* ---------- diff mode: colors (GitHub Primer values) ---------- */
+:root {
+  --rd-diff-add-bg: #e6ffec;
+  --rd-diff-add-word-bg: #abf2bc;
+  --rd-diff-add-bar: #2da44e;
+  --rd-diff-del-bg: #ffebe9;
+  --rd-diff-del-word-bg: rgba(255, 129, 130, .4);
+  --rd-diff-del-bar: #cf222e;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --rd-diff-add-bg: rgba(46, 160, 67, .15);
+    --rd-diff-add-word-bg: rgba(46, 160, 67, .4);
+    --rd-diff-add-bar: #3fb950;
+    --rd-diff-del-bg: rgba(248, 81, 73, .15);
+    --rd-diff-del-word-bg: rgba(248, 81, 73, .4);
+    --rd-diff-del-bar: #f85149;
+  }
+}
+
+/* ---------- block-level add/delete/replace ---------- */
+/* Left color bar only — no +/- glyph (a marker badge already occupies that
+   gutter in normal mode, and a second symbol here would just be visual
+   noise for something the background color already says). */
+#rd-content .rd-diff-block {
+  position: relative;
+  margin: 0 0 14px 14px;
+  padding: 2px 10px;
+  border-radius: 4px;
+}
+/* The wrapped element keeps its own top/bottom margin by default, which
+   stacks with the wrapper's own padding/margin (padding blocks the parent/
+   child margin-collapse that would normally fold it away) — a diffed block
+   would otherwise sit noticeably taller than the same content un-diffed,
+   so toggling the diff view shifts everything below it. Zeroing the first/
+   last child's margin makes the wrapper's own (small) padding/margin the
+   ONLY spacing, keeping the two views close enough that switching between
+   them doesn't visibly jump. */
+#rd-content .rd-diff-block > :first-child { margin-top: 0; }
+#rd-content .rd-diff-block > :last-child { margin-bottom: 0; }
+#rd-content .rd-diff-block::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -14px;
+  width: 3px;
+  border-radius: 2px;
+}
+#rd-content .rd-diff-add { background: var(--rd-diff-add-bg); }
+#rd-content .rd-diff-add::before { background: var(--rd-diff-add-bar); }
+#rd-content .rd-diff-del { background: var(--rd-diff-del-bg); }
+#rd-content .rd-diff-del::before { background: var(--rd-diff-del-bar); }
+
+/* ---------- word-level highlight inside a replace pair ---------- */
+/* GitHub doesn't strike through removed words or underline added ones at the
+   word level — only the background communicates the change — so the
+   default <del>/<ins> text-decoration is turned off here. */
+#rd-content .rd-diff-del del,
+#rd-content .rd-diff-add ins {
+  text-decoration: none;
+  border-radius: 2px;
+}
+#rd-content .rd-diff-del del { background: var(--rd-diff-del-word-bg); }
+#rd-content .rd-diff-add ins { background: var(--rd-diff-add-word-bg); }
+
+/* ---------- line-level diff (code blocks, front matter) ---------- */
+.rd-diff-lines { margin: 0; }
+.rd-diff-line { padding: 0 8px; white-space: pre; }
+.rd-diff-line-delete { background: var(--rd-diff-del-bg); box-shadow: inset 3px 0 0 var(--rd-diff-del-bar); }
+.rd-diff-line-insert { background: var(--rd-diff-add-bg); box-shadow: inset 3px 0 0 var(--rd-diff-add-bar); }
+
+/* A paired "replace" line's own changed span, same darker tint a changed
+   word gets in prose (wordDiffForLinePair reuses the exact same threshold /
+   decision logic — this is not a separate rule, just applied to code text). */
+.rd-diff-line-delete del,
+.rd-diff-line-insert ins { text-decoration: none; border-radius: 2px; }
+.rd-diff-line-delete del { background: var(--rd-diff-del-word-bg); }
+.rd-diff-line-insert ins { background: var(--rd-diff-add-word-bg); }
+
+/* ---------- table rows / cells (Phase 5) ---------- */
+/* GitHub tints a changed table row's background only — no left bar, no
+   glyph — so a diff-mode table reads like an ordinary table with two rows
+   of color dropped in, not like a separate widget. */
+#rd-content tr.rd-diff-add > td,
+#rd-content tr.rd-diff-add > th { background: var(--rd-diff-add-bg); }
+#rd-content tr.rd-diff-del > td,
+#rd-content tr.rd-diff-del > th { background: var(--rd-diff-del-bg); }
+
+/* A "replace" row's changed cell stacks old (red) over new (green), same
+   language as a changed paragraph — just cell-sized instead of block-sized. */
+#rd-content td.rd-diff-cell-changed { padding: 0; vertical-align: top; }
+#rd-content .rd-diff-cell-old,
+#rd-content .rd-diff-cell-new { display: block; padding: 6px 10px; }
+#rd-content .rd-diff-cell-old { background: var(--rd-diff-del-bg); }
+#rd-content .rd-diff-cell-new { background: var(--rd-diff-add-bg); }
+#rd-content .rd-diff-cell-old del,
+#rd-content .rd-diff-cell-new ins { text-decoration: none; border-radius: 2px; }
+#rd-content .rd-diff-cell-old del { background: var(--rd-diff-del-word-bg); }
+#rd-content .rd-diff-cell-new ins { background: var(--rd-diff-add-word-bg); }
+
+/* A column present on only one side of a "replace" row (uneven column count
+   — not standard GFM, but tolerated) gets whole-cell color instead. */
+#rd-content td.rd-diff-add { background: var(--rd-diff-add-bg); }
+#rd-content td.rd-diff-del { background: var(--rd-diff-del-bg); }
+
+/* ---------- list items (Phase 5) ---------- */
+#rd-content .rd-diff-block-plain { margin: 0 0 14px 14px; }
+#rd-content .rd-diff-li.rd-diff-add { background: var(--rd-diff-add-bg); }
+#rd-content .rd-diff-li.rd-diff-del { background: var(--rd-diff-del-bg); }
+
+/* ---------- no changes ---------- */
+.rd-diff-empty {
+  color: var(--rd-draft);
+  font-style: italic;
+  padding: 12px 0;
+}
+
+/* ---------- topbar toggle ---------- */
+/* .rd-btn's default padding/font-size are sized for the sidebar's roomy
+   "Claude に送信" button — too large next to the topbar's compact icon
+   button and status text, so this scales it down to match that context. */
+#rd-diff-toggle {
+  width: auto;
+  white-space: nowrap;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  border-radius: 5px;
+}

@@ -105,7 +105,7 @@
     if (activeCount === 0 && resolved.length === 0) {
       elList.appendChild(h("p", {
         "class": "rd-empty",
-        text: "コメントはまだありません。本文を選択／クリックして Cmd+Enter で追加。"
+        text: "コメントはまだありません。本文を選択／クリックして ⌘Enter で追加。"
       }));
     }
 
@@ -125,10 +125,14 @@
 
     var nPending = state.pending.length;
     elSend.disabled = nPending === 0;
-    elSend.textContent = nPending > 0 ? "Claude に送信 (" + nPending + ")" : "Claude に送信";
-    elSendNote.textContent = nPending > 0
-      ? "Cmd+Shift+Enter で送信"
-      : "本文を選択/クリック → Cmd+Enter で追加";
+    elSend.textContent = nPending > 0
+      ? "Claude に送信 (" + nPending + "・⌘⇧Enter)"
+      : "Claude に送信 (⌘⇧Enter)";
+    // The send shortcut now lives on the button itself (above), so this note
+    // only needs to cover the OTHER shortcut (drafting a comment) — always,
+    // not just while there's nothing pending, since adding one more comment
+    // before sending the batch is still a normal thing to do.
+    elSendNote.textContent = "本文を選択/クリック → ⌘Enter で追加";
 
     // Heights are only knowable once the cards are laid out, so clamp long
     // bubbles in a deferred pass.
