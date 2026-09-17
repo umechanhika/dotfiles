@@ -16,6 +16,9 @@
   // in the iframe's load handler (onFrameLoad), not here.
   function applySource(data, preserveScroll) {
     state.meta = data;
+    // isHtml() only knows the answer once state.meta is set — the diff
+    // toggle is markdown-only, so its visibility depends on this.
+    if (typeof updateDiffToggleUI === "function") updateDiffToggleUI();
     elFilename.textContent = data.name;
     // Baseline tab title = filename, so it's never blank. renderMarkdown()
     // (first heading) or onFrameLoad() (doc.title) overrides this below when
@@ -122,6 +125,31 @@
     document.title = excerpt(text, 60);
   }
 
+  // Renders one non-list/non-table token into an array of DOM elements, with
+  // NO side effects: no data-srcblock, no append to any live document, no
+  // state.blockRaws write. That bookkeeping is the marker system's contract
+  // (comment.05-markers.js) and belongs solely to the caller. Shared by the
+  // normal renderer below (which adds the bookkeeping right after calling
+  // this) and the diff view (comment.09-diffview.js), which deliberately
+  // never wants it — a diff-mode block is not a commentable target.
+  function buildBlockEls(tok, links, scratch) {
+    var toks = [tok];
+    toks.links = links;
+    scratch.innerHTML = marked.parser(toks);
+    return Array.prototype.slice.call(scratch.children).map(function (el) {
+      if (el.tagName !== "PRE") return el;
+      // A fenced code block's own overflow-x: auto (01-base.css) makes it a
+      // clipping box, same as any other `overflow != visible` element — the
+      // marker badge (position: absolute, negative top/left — see
+      // 02-markers.css) is a CHILD of the marker host, so if the host is the
+      // clipping box itself, the badge gets clipped away invisibly rather
+      // than bleeding into the gutter. A plain wrapper (no overflow of its
+      // own) becomes the marker host instead, exactly the same fix as the
+      // table's .rd-table-block/.rd-table-scroll split.
+      return h("div", { "class": "rd-pre-block" }, [el]);
+    });
+  }
+
   // Render markdown block-by-block. We intentionally parse each top-level token
   // on its own: it is what lets us map every rendered block back to its exact
   // raw markdown (`block_raw`) and a stable `data-srcblock` index. That mapping
@@ -158,24 +186,9 @@
         idx += renderTableBlock(tok, idx, links, scratch);
         return;
       }
-      var toks = [tok];
-      toks.links = links;
-      scratch.innerHTML = marked.parser(toks);
-      var children = Array.prototype.slice.call(scratch.children);
+      var children = buildBlockEls(tok, links, scratch);
       if (children.length === 0) return;
-      children.forEach(function (el) {
-        var blockEl = el;
-        if (el.tagName === "PRE") {
-          // A fenced code block's own overflow-x: auto (01-base.css) makes it
-          // a clipping box, same as any other `overflow != visible` element —
-          // the marker badge (position: absolute, negative top/left — see
-          // 02-markers.css) is a CHILD of the marker host, so if the host is
-          // the clipping box itself, the badge gets clipped away invisibly
-          // rather than bleeding into the gutter. A plain wrapper (no
-          // overflow of its own) becomes the marker host instead, exactly the
-          // same fix as the table's .rd-table-block/.rd-table-scroll split.
-          blockEl = h("div", { "class": "rd-pre-block" }, [el]);
-        }
+      children.forEach(function (blockEl) {
         blockEl.dataset.srcblock = String(idx);
         elContent.appendChild(blockEl);
       });

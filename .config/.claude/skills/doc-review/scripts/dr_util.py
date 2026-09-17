@@ -11,12 +11,28 @@ Python 3.9 compatible (no PEP 604 unions).
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import time
 
 
 def _now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def atomic_write_json(path: str, obj) -> None:
+    """Write ``obj`` as JSON to ``path`` atomically (tmp file + os.replace).
+
+    Same technique as dr_store.save(), extracted here because callers outside
+    the thread store (e.g. the diff-mode baseline file) need it too. Pure: no
+    locking of its own — callers serialise concurrent writers themselves
+    (dr_routes_post uses dr_store.LOCK, matching how it already guards
+    dr_store.append_jsonl for the same work-dir).
+    """
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(obj, fh, ensure_ascii=False, indent=2)
+    os.replace(tmp, path)
 
 
 def _kind_for_ext(ext: str) -> str:

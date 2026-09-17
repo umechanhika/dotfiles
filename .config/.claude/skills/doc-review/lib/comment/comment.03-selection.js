@@ -5,6 +5,7 @@
   // hover highlight
   // ===================================================================
   function onHover(e) {
+    if (state.diffMode) return;   // diff-mode content isn't a commentable target
     var target = blockOf(e.target, e);
     if (target === state.hovered) return;
     clearHover();
@@ -97,6 +98,7 @@
   }
 
   function onMouseUp(e) {
+    if (state.diffMode) return;   // no drafting a comment against diff-mode content
     // Clicking a marker badge is "jump to comment", not "comment on this block".
     if (e.target.closest && e.target.closest(".rd-marker")) return;
     var down = mouseDownPoint;

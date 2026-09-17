@@ -40,7 +40,9 @@
     hovered: null,
     toastTimer: null,
     expanded: {},        // message keys the user manually expanded (survives re-render)
-    editingPid: null     // pid of the pending (unsent) comment currently being edited, or null
+    editingPid: null,    // pid of the pending (unsent) comment currently being edited, or null
+    diffMode: false,     // showing "changes since last submit" instead of the normal render
+    baseline: null       // GET /baseline result: {available, batch_id, ts, content} | {available:false} | null (not fetched yet)
   };
 
   // ---- DOM refs (set once in start) ----

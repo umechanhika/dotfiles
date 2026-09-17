@@ -13,6 +13,7 @@ Python 3.9 compatible (no PEP 604 unions).
 """
 from __future__ import annotations
 
+import json
 import os
 import urllib.parse
 
@@ -39,6 +40,8 @@ class GetRoutes:
             return self._serve_threads()
         if path == "/rev":
             return self._serve_rev()
+        if path == "/baseline":
+            return self._serve_baseline()
         if path == "/favicon.ico":
             return self._send_bytes(b"", "image/x-icon", status=204)
         return self._send_error_json(404, "not found")
@@ -122,3 +125,28 @@ class GetRoutes:
         # (and its full message history) every few seconds.
         with dr_store.LOCK:
             self._send_json({"rev": dr_store.store()["rev"]})
+
+    def _serve_baseline(self) -> None:
+        # Diff mode's "previous version": the file content as of the most
+        # recent /threads/submit, written atomically by _submit(). Absent
+        # until the first submission for this target, which the browser
+        # must show as an explicit state (no baseline yet) rather than
+        # silently diffing against nothing.
+        path = dr_config.BASELINE_PATH
+        if not os.path.isfile(path):
+            return self._send_json({"available": False})
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+        except (OSError, ValueError) as exc:
+            return self._send_error_json(500, "cannot read baseline: %s" % exc)
+        if not isinstance(data, dict) or "content" not in data:
+            return self._send_error_json(500, "corrupt baseline file")
+        self._send_json(
+            {
+                "available": True,
+                "batch_id": data.get("batch_id"),
+                "ts": data.get("ts"),
+                "content": data["content"],
+            }
+        )

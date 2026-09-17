@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="/lib/comment/04-controls.css">
   <link rel="stylesheet" href="/lib/comment/05-threads.css">
   <link rel="stylesheet" href="/lib/comment/06-media.css">
+  <link rel="stylesheet" href="/lib/comment/07-diff.css">
   <script src="/lib/marked.min.js"></script>
 </head>
 <body>
@@ -26,7 +27,11 @@
       <span id="rd-status" class="rd-status">読み込み中…</span>
     </div>
     <div class="rd-topbar-right">
-      <label class="rd-hint">選択／クリック → <kbd>⌘Enter</kbd>で追加 ・ <kbd>⌘⇧Enter</kbd>で一括送信</label>
+      <span id="rd-diff-note" class="rd-hint" hidden></span>
+      <!-- Markdown only (HTML renders in an iframe — see comment.00-core.js
+           isHtml()); comment.09-diffview.js hides this entirely for HTML and
+           disables it until the first /threads/submit produces a baseline. -->
+      <button id="rd-diff-toggle" class="rd-btn rd-btn-ghost" type="button" hidden disabled>変更点を表示</button>
       <button id="rd-sidebar-toggle" class="rd-icon-btn" type="button"
               aria-label="コメントパネルの開閉" aria-expanded="true" title="コメントパネルの開閉">☰</button>
     </div>
@@ -80,6 +85,8 @@
   <script src="/lib/comment/comment.05-markers.js"></script>
   <script src="/lib/comment/comment.06-server.js"></script>
   <script src="/lib/comment/comment.07-utils.js"></script>
+  <script src="/lib/comment/comment.08-diff.js"></script>
+  <script src="/lib/comment/comment.09-diffview.js"></script>
   <script>
     window.addEventListener("DOMContentLoaded", function () {
       ReviewDoc.start();
