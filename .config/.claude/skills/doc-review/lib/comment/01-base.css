@@ -149,7 +149,13 @@ html, body {
   max-width: 1200px;
   height: calc(100vh - var(--rd-topbar-h) - 64px);
   border: 0;
-  background: var(--rd-bg);
+  /* Fixed, not var(--rd-bg): this is the iframe element's own backdrop, seen
+     through any part of the target HTML that leaves its background
+     transparent. It must stay light regardless of our dark theme, or a
+     target with no explicit background renders on a dark backdrop and its
+     original (light-assumed) colors become unreadable. The target's own
+     dark-mode handling (if any) is untouched — this only fixes our chrome. */
+  background: #ffffff;
   border-radius: 8px;
   box-shadow: 0 1px 4px rgba(0,0,0,.08);
 }
