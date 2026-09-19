@@ -90,6 +90,20 @@ install.sh は以下のツールを自動でクローン・ビルドする:
 - [agent-manager](https://github.com/umechanhika/agent-manager) → `~/agent-manager`
 - [window-snap](https://github.com/umechanhika/window-snap) → `~/window-snap`
 
+## ☁️リモート環境のセットアップ
+Claude Code on the web のコンテナでも、グローバル設定・スキル・アウトプットスタイルを揃える。
+
+- 環境設定の setup script に以下を追加する。
+
+```sh
+git clone https://github.com/umechanhika/dotfiles.git ~/.dotfiles
+sh ~/.dotfiles/.bin/claude-remote-setup.sh
+```
+
+- クローン済みの環境では、`git -C ~/.dotfiles pull --ff-only` を先に実行して最新化する。
+- クローン先を変える場合は `DOTFILES_DIR` で指定する。
+- settings.json は macOS 専用の hook を含むため丸ごとは持ち込まず、アウトプットスタイルの指定だけをリモート側の設定にマージする。
+
 ## 🪛ツール類のセットアップ
 ### BetterTouchTool
 - ライセンスファイルのインポート
