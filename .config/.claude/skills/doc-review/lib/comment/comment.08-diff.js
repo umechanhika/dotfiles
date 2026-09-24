@@ -472,8 +472,13 @@
   // inside a <pre>, which never reaches here anyway since code/frontmatter
   // blocks are routed to diffLines instead — kept as a defensive boundary
   // in case a block embeds a <pre> some other way, e.g. raw HTML).
+  // `root.ownerDocument` (not the bare `document`) so this also works when
+  // `root` lives inside the HTML preview's iframe (comment.10-htmldiff.js) —
+  // markdown's `root` is always in the parent document, so `|| document`
+  // (root with no owner, e.g. a Document node itself) is the only case that
+  // ever falls back, and md's own behaviour there is unchanged either way.
   function collectTextRuns(root) {
-    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    var walker = (root.ownerDocument || document).createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode: function (n) {
         return (n.parentElement && n.parentElement.closest("pre"))
           ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
@@ -495,7 +500,8 @@
     var target = node;
     if (localEnd < target.nodeValue.length) target.splitText(localEnd);
     if (localStart > 0) target = target.splitText(localStart);
-    var wrapper = document.createElement(tagName);
+    // target.ownerDocument, not the bare `document` — see collectTextRuns.
+    var wrapper = (target.ownerDocument || document).createElement(tagName);
     target.parentNode.insertBefore(wrapper, target);
     wrapper.appendChild(target);
     return wrapper;

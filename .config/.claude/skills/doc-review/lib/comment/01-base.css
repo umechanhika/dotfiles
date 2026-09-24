@@ -142,8 +142,9 @@ html, body {
    document (no cascade from this chrome). The iframe scrolls internally and has
    a fixed height so marker coordinates stay stable. We don't style its content
    — that's the point; we only size/frame the box itself. The hover/marker CSS
-   the content needs is injected INTO the iframe document by comment.js
-   (FRAME_OVERLAY_CSS), since these rules can't cross the iframe boundary. */
+   the content needs is linked INTO the iframe document by comment.02-render.js's
+   injectFrameOverlay() (frame-overlay.css), since these rules can't cross the
+   iframe boundary. */
 #rd-frame {
   width: 100%;
   max-width: 1200px;

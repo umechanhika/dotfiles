@@ -113,12 +113,21 @@
         // submit's pre-edit snapshot) and switch to diff mode automatically,
         // overriding the normal render applySource just did, regardless of
         // which mode the reader was in before.
-        fetchBaseline().then(function () {
-          if (!diffAvailable()) return;   // baseline fetch failed or still none — keep the normal render applySource already drew
-          state.diffMode = true;
-          renderDiffView();
-          updateDiffToggleUI();
-        });
+        if (isHtml()) {
+          // applySource just now started an async loadFrame() (iframe
+          // navigation) — the DOM to diff against isn't ready yet, so
+          // entering diff mode has to wait for onFrameLoad too, not just
+          // this baseline fetch. maybeAutoEnterDiff (comment.09-diffview.js)
+          // is the rendezvous: it only actually enters once both this
+          // fetch AND onFrameLoad have completed, in whichever order.
+          state.autoDiffPending = true;
+          fetchBaseline().then(maybeAutoEnterDiff);
+        } else {
+          fetchBaseline().then(function () {
+            if (!diffAvailable()) return;   // baseline fetch failed or still none — keep the normal render applySource already drew
+            enterDiffMode();
+          });
+        }
       } else {
         // Reply / status change only: no body re-parse, just refresh markers + sidebar.
         setStatus("返信が届きました");

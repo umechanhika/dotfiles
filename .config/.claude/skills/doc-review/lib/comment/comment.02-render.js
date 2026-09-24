@@ -89,24 +89,51 @@
     // the frame the global shortcuts (Esc, ⌘⇧Enter send) would be missed. These
     // are parent closures; attaching them to the frame doc keeps them working.
     doc.addEventListener("keydown", onGlobalKey);
+    // #rd-frame is fluid-width (01-base.css), so both a real window resize
+    // and dragging the sidebar handle (comment.07-utils.js) reflow the
+    // target content — a live sidebar drag fires this continuously, hence
+    // the debounce. refreshView() re-places every marker, which recomputes
+    // any commented <li>'s own-content height (syncLiOwnContentHeight,
+    // comment.07-utils.js) against the new layout instead of leaving it
+    // pointing at a stale height.
+    if (elFrame.contentWindow) {
+      var resizeTimer = null;
+      elFrame.contentWindow.addEventListener("resize", function () {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(refreshView, 120);
+      });
+    }
     state.hovered = null;
     refreshView();   // place markers for the current threads/drafts inside the frame
     if (elFrame.contentWindow) {
       try { elFrame.contentWindow.scrollTo(0, state.pendingScrollY || 0); } catch (e) { /* best effort */ }
     }
     state.pendingScrollY = 0;
+    // No-op unless an edit landed while this reload was in flight
+    // (state.autoDiffPending — comment.06-server.js's onRevBumped); see
+    // maybeAutoEnterDiff's own doc comment (comment.09-diffview.js) for why
+    // this and the baseline fetch both call it rather than either alone.
+    maybeAutoEnterDiff();
   }
 
+  // Every onFrameLoad() runs against a brand-new document (a fresh iframe
+  // navigation, never one we've touched before — see the note at the top of
+  // onFrameLoad), so there's never a stale link left over to reuse or replace.
+  // A real <link> (not an injected <style> string) lets the browser fetch and
+  // cache frame-overlay.css itself; onerror surfaces a failed load instead of
+  // silently leaving the target unstyled with no indication why.
   function injectFrameOverlay(doc) {
     var head = doc.head || doc.documentElement;
     if (!head) return;
-    var style = doc.getElementById("rd-overlay-style");
-    if (!style) {
-      style = doc.createElement("style");
-      style.id = "rd-overlay-style";
-      head.appendChild(style);
-    }
-    style.textContent = FRAME_OVERLAY_CSS;
+    var link = doc.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "/lib/comment/frame-overlay.css";
+    link.id = "rd-overlay-style";
+    link.onerror = function () {
+      setStatus("オーバーレイCSSの読み込みに失敗しました");
+      toast("プレビューの枠線/マーカー表示が崩れる可能性があります");
+    };
+    head.appendChild(link);
   }
 
   // Front matter must open on the very first line; anything else is body

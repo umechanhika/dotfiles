@@ -42,7 +42,15 @@
     expanded: {},        // message keys the user manually expanded (survives re-render)
     editingPid: null,    // pid of the pending (unsent) comment currently being edited, or null
     diffMode: false,     // showing "changes since last submit" instead of the normal render
-    baseline: null       // GET /baseline result: {available, batch_id, ts, content} | {available:false} | null (not fetched yet)
+    baseline: null,      // GET /baseline result: {available, batch_id, ts, content} | {available:false} | null (not fetched yet)
+    // HTML only: an edit just landed and diff mode should auto-enter once
+    // BOTH the reloaded iframe (onFrameLoad, comment.02-render.js) and the
+    // fresh baseline fetch (onRevBumped, comment.06-server.js) have
+    // completed — either can finish first, so this is set the moment the
+    // edit lands and cleared by whichever of the two finishes second
+    // (maybeAutoEnterDiff, comment.09-diffview.js). Markdown's render is
+    // synchronous, so it never needs this — see onRevBumped's md branch.
+    autoDiffPending: false
   };
 
   // ---- DOM refs (set once in start) ----
@@ -83,28 +91,10 @@
   }
 
   // Marker / hover / flash styles for the HTML iframe. comment.css can't reach
-  // inside the iframe document, so we inject an equivalent subset on each load.
-  // NOTE: keep visually in sync with the matching rules in comment.css. The
-  // marker gutter is *inside* the block's top-left (positive left) because an
-  // arbitrary report has no guaranteed left padding to bleed a marker into.
-  var FRAME_OVERLAY_CSS = [
-    ":root{--rd-hover:#4a90d9;--rd-commented:#e8821a;--rd-draft:#8a8f98;--rd-answered:#2f8a3c;}",
-    ".rd-hover{outline:2px solid var(--rd-hover) !important;outline-offset:2px;border-radius:3px;cursor:pointer;}",
-    ".rd-commented{outline:2px solid var(--rd-commented) !important;outline-offset:2px;border-radius:3px;position:relative;}",
-    ".rd-marker{position:absolute;top:-10px;left:4px;min-width:20px;height:20px;padding:0 5px;" +
-      "background:var(--rd-commented);color:#fff;font-size:12px;font-weight:700;line-height:1;border:none;" +
-      "-webkit-appearance:none;appearance:none;border-radius:10px;display:flex;align-items:center;" +
-      "justify-content:center;cursor:pointer;z-index:2147483646;" +
-      "font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Helvetica Neue',sans-serif;}",
-    ".rd-marker:hover{transform:scale(1.15);box-shadow:0 1px 5px rgba(0,0,0,.3);}",
-    ".rd-marker:focus-visible{outline:2px solid #fff;outline-offset:1px;}",
-    ".rd-marker.draft{background:var(--rd-draft);}",
-    ".rd-marker.answered{background:var(--rd-answered);}",
-    ".rd-stale{outline-color:#b0b0b0 !important;}",
-    ".rd-stale .rd-marker{background:#b0b0b0;}",
-    "@keyframes rdflash{0%{box-shadow:0 0 0 0 rgba(232,130,26,.55);}100%{box-shadow:0 0 0 8px rgba(232,130,26,0);}}",
-    ".rd-flash{animation:rdflash .85s ease-out;}"
-  ].join("\n");
+  // inside the iframe document, so injectFrameOverlay() (comment.02-render.js)
+  // links the target's <head> to frame-overlay.css instead — that file is the
+  // single source of truth for these rules; it no longer lives here as a JS
+  // string, so there is nothing in this file to keep in sync by hand.
 
   function noop() {}
 
