@@ -1,0 +1,126 @@
+/* Injected into the target HTML's own <head> (comment.02-render.js's
+ * injectFrameOverlay()) — the parent document's stylesheets can't reach
+ * inside the iframe, so this is an equivalent subset of comment.css's
+ * marker/hover styling, kept visually in sync by hand.
+ *
+ * NOTE: .rd-hover / .rd-commented / .rd-marker / .rd-stale (+ the rdflash
+ * keyframes) mirror 02-markers.css. Keep the two in sync when editing marker
+ * appearance. The th/td overrides below mirror 01-base.css:105-108 and
+ * 02-markers.css:50-55 (table-cell marker placement).
+ */
+:root{--rd-hover:#4a90d9;--rd-commented:#e8821a;--rd-draft:#8a8f98;--rd-answered:#2f8a3c;}
+.rd-hover{outline:2px solid var(--rd-hover) !important;outline-offset:2px;border-radius:3px;cursor:pointer;}
+.rd-commented{outline:2px solid var(--rd-commented) !important;outline-offset:2px;border-radius:3px;position:relative;}
+/* Top-right, not top-left: an arbitrary target commonly puts its own
+   decoration on the LEFT of a block's own left edge (list bullets/numbers,
+   a blockquote's left border, a code block's line-number gutter) — a
+   left-side badge sits right on top of those. The right side carries no
+   such convention, matching the top-right placement cells already use
+   (below) for the same reason. */
+.rd-marker{position:absolute;top:-10px;right:4px;min-width:20px;height:20px;padding:0 5px;
+  background:var(--rd-commented);color:#fff;font-size:12px;font-weight:700;line-height:1;border:none;
+  -webkit-appearance:none;appearance:none;border-radius:10px;display:flex;align-items:center;
+  justify-content:center;cursor:pointer;z-index:2147483646;
+  font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Helvetica Neue',sans-serif;}
+.rd-marker:hover{transform:scale(1.15);box-shadow:0 1px 5px rgba(0,0,0,.3);}
+.rd-marker:focus-visible{outline:2px solid #fff;outline-offset:1px;}
+.rd-marker.draft{background:var(--rd-draft);}
+.rd-marker.answered{background:var(--rd-answered);}
+.rd-stale{outline-color:#b0b0b0 !important;}
+.rd-stale .rd-marker{background:#b0b0b0;}
+@keyframes rdflash{0%{box-shadow:0 0 0 0 rgba(232,130,26,.55);}100%{box-shadow:0 0 0 8px rgba(232,130,26,0);}}
+.rd-flash{animation:rdflash .85s ease-out;}
+
+/* A table cell has no guaranteed left padding to bleed the default marker
+   into (unlike md's rendered blocks, which always have --rd-gutter), and it
+   sits inside whatever scrolling box the target's own CSS gives it — so a
+   marker offset outside the cell's own border can get clipped. Drawing the
+   outline inside the cell's border, and pinning the badge to the cell's own
+   top-right corner, avoids relying on any of that. th.rd-hover/td.rd-hover
+   (tag+class) outrank the plain .rd-hover/.rd-commented rules above, same as
+   #rd-content th.rd-hover outranks .rd-hover in 02-markers.css. */
+th.rd-hover, td.rd-hover,
+th.rd-commented, td.rd-commented {
+  outline-offset: -2px;
+}
+th.rd-commented, td.rd-commented { padding-right: 22px; }
+th.rd-commented > .rd-marker, td.rd-commented > .rd-marker {
+  top: 1px; right: 1px; left: auto;
+  min-width: 16px; height: 16px;
+  font-size: 0.62rem;
+}
+
+/* A parent <li>'s box wraps its own text AND its nested <ul>/<ol> (the
+   sub-list is a normal block child inside it), so the plain .rd-hover/
+   .rd-commented outline above — applied straight to the <li> — would engulf
+   the children below it too. The li's own outline is suppressed here and
+   redrawn on a ::before layer instead, confined to --rd-li-own-h (the own
+   line's height, set by comment.07-utils.js's syncLiOwnContentHeight() —
+   falls back to the full box when unset, e.g. before that JS has run once).
+   A pseudo-element only adds a paint layer, not a real child — unlike an
+   inserted wrapper it can't affect the target's own :nth-child / sibling /
+   flex-item-count CSS, and unlike clip-path it doesn't hide the real
+   children under it, only draws over their top portion. */
+li:has(> ul, > ol).rd-hover,
+li:has(> ul, > ol).rd-commented {
+  outline: none !important;
+  position: relative;
+}
+li:has(> ul, > ol).rd-hover::before,
+li:has(> ul, > ol).rd-commented::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: var(--rd-li-own-h, 100%);
+  border-radius: 3px;
+  pointer-events: none;
+}
+li:has(> ul, > ol).rd-hover::before { outline: 2px solid var(--rd-hover); outline-offset: 2px; }
+li:has(> ul, > ol).rd-commented::before { outline: 2px solid var(--rd-commented); outline-offset: 2px; }
+
+/* ---------- diff mode (comment.10-htmldiff.js) ----------
+   Same GitHub Primer values as 07-diff.css, so the two modes read as one
+   system even though the mechanics differ (07-diff.css colors wrapper divs
+   THIS tool builds; here the color classes land directly on the target's
+   own elements — applyDiffOps overlays onto what's already rendered rather
+   than rebuilding it, see that function's doc comment). No left color bar:
+   07-diff.css's bar is drawn relative to a wrapper div this tool fully
+   owns; an arbitrary target element has no such reserved margin to draw
+   one into without risking an overlap with the target's own layout. */
+:root {
+  --rd-diff-add-bg: #e6ffec;
+  --rd-diff-add-word-bg: #abf2bc;
+  --rd-diff-del-bg: #ffebe9;
+  --rd-diff-del-word-bg: rgba(255, 129, 130, .4);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --rd-diff-add-bg: rgba(46, 160, 67, .15);
+    --rd-diff-add-word-bg: rgba(46, 160, 67, .4);
+    --rd-diff-del-bg: rgba(248, 81, 73, .15);
+    --rd-diff-del-word-bg: rgba(248, 81, 73, .4);
+  }
+}
+.rd-diff-add { background: var(--rd-diff-add-bg) !important; }
+.rd-diff-del { background: var(--rd-diff-del-bg) !important; }
+.rd-diff-del del, .rd-diff-add ins { text-decoration: none; border-radius: 2px; }
+.rd-diff-del del { background: var(--rd-diff-del-word-bg); }
+.rd-diff-add ins { background: var(--rd-diff-add-word-bg); }
+/* A changed table cell (comment.10-htmldiff.js's applyCellReplace) stacks
+   old-over-new INSIDE the one live <td>/<th> instead of the sibling
+   ghost every other leaf gets — see that function's own doc comment for
+   why. !important on the reset: the target's own CSS almost certainly
+   already sets padding on td/th (that's the norm for any real table), at
+   whatever specificity, and it has to lose here or the spans' own padding
+   stacks on top of it. Mirrors 07-diff.css's .rd-diff-cell-old/-new. */
+td.rd-diff-cell-changed, th.rd-diff-cell-changed { padding: 0 !important; vertical-align: top; }
+.rd-diff-cell-old, .rd-diff-cell-new { display: block; padding: 6px 10px; }
+.rd-diff-cell-old { background: var(--rd-diff-del-bg); }
+.rd-diff-cell-new { background: var(--rd-diff-add-bg); }
+.rd-diff-cell-old del, .rd-diff-cell-new ins { text-decoration: none; border-radius: 2px; }
+.rd-diff-cell-old del { background: var(--rd-diff-del-word-bg); }
+.rd-diff-cell-new ins { background: var(--rd-diff-add-word-bg); }
+/* A ghost is a clone of content that no longer exists in the current
+   document — inert so it can't be mistaken for something still there (an
+   <a href> inside it would otherwise still navigate the iframe on click). */
+[data-rd-diff-ghost] { pointer-events: none; }

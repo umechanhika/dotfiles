@@ -31,7 +31,7 @@
   var elDiffNote = document.getElementById("rd-diff-note");
 
   function diffAvailable() {
-    return !isHtml() && !!(state.baseline && state.baseline.available);
+    return !!(state.baseline && state.baseline.available);
   }
 
   // ts is dr_util._now()'s "YYYY-MM-DDTHH:MM:SS" — always the server's own
@@ -43,11 +43,6 @@
 
   function updateDiffToggleUI() {
     if (!elDiffToggle) return;
-    if (isHtml()) {
-      elDiffToggle.hidden = true;
-      if (elDiffNote) elDiffNote.hidden = true;
-      return;
-    }
     elDiffToggle.hidden = false;
     var available = !!(state.baseline && state.baseline.available);
     elDiffToggle.disabled = !available;
@@ -69,14 +64,57 @@
   function toggleDiffMode() {
     if (state.diffMode) {
       state.diffMode = false;
-      render();
-      refreshView();
+      // HTML mode has no "normal render" to fall back to the way markdown's
+      // render() is — the diff view was painted directly onto the live
+      // target DOM (comment.10-htmldiff.js's applyDiffOps), so undoing it
+      // means starting the iframe over from /raw/, not un-painting it node
+      // by node.
+      if (isHtml()) { loadFrame(); } else { render(); refreshView(); }
+      updateDiffToggleUI();
+      return;
+    }
+    enterDiffMode();
+  }
+
+  // Shared by the manual toggle button above and the automatic switch
+  // (onRevBumped, comment.06-server.js, via maybeAutoEnterDiff below) that
+  // fires once Claude's edit lands. Returns whether it actually entered —
+  // the automatic caller doesn't need this, but toggleDiffMode's click
+  // handler implicitly does (state.diffMode only flips on success).
+  function enterDiffMode() {
+    if (!diffAvailable()) return false;
+    if (isHtml()) {
+      try {
+        renderHtmlDiff(rdRoot());
+      } catch (e) {
+        // diffHtmlDom/applyDiffOps throw rather than silently rendering
+        // nothing (comment.10-htmldiff.js) — surfaced here instead of
+        // swallowed, and state.diffMode stays false since nothing was
+        // painted (renderHtmlDiff computes the whole diff before touching
+        // the DOM at all).
+        setStatus("変更点を表示できませんでした: " + e.message);
+        toast("変更点を表示できませんでした");
+        updateDiffToggleUI();
+        return false;
+      }
     } else {
-      if (!diffAvailable()) return;
-      state.diffMode = true;
       renderDiffView();
     }
+    state.diffMode = true;
     updateDiffToggleUI();
+    return true;
+  }
+
+  // HTML only (comment.00-core.js's state.autoDiffPending doc comment
+  // explains why md doesn't need this): called from both onFrameLoad
+  // (comment.02-render.js) and the baseline fetch's .then (onRevBumped,
+  // comment.06-server.js) after an edit lands — only actually enters once
+  // both have completed, in whichever order they finish.
+  function maybeAutoEnterDiff() {
+    if (!state.autoDiffPending || !isHtml() || !docEnv) return;
+    if (!diffAvailable()) return;   // baseline fetch not resolved yet, or failed
+    state.autoDiffPending = false;
+    enterDiffMode();
   }
 
   // ===================================================================

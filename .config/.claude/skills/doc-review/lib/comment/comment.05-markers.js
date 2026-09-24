@@ -7,6 +7,7 @@
   function markBlock(block, key, num, cls) {
     if (!block || block === rdRoot()) return;
     block.classList.add("rd-commented");
+    syncLiOwnContentHeight(block);
     if (cls) block.classList.add(cls);
     // Relative positioning is handled by `.rd-commented { position: relative }`
     // — no getComputedStyle read here, so marker placement doesn't force a
@@ -29,6 +30,9 @@
     Array.prototype.forEach.call(root.querySelectorAll(".rd-marker"), function (m) { m.remove(); });
     Array.prototype.forEach.call(root.querySelectorAll(".rd-commented"), function (b) {
       b.classList.remove("rd-commented", "draft", "answered", "stale");
+      // --rd-li-own-h (comment.07-utils.js) is left as-is: frame-overlay.css
+      // only reads it while .rd-hover/.rd-commented is present, so a stale
+      // value on a no-longer-marked element is inert.
     });
   }
 

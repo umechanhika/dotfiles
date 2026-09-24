@@ -11,11 +11,15 @@
     clearHover();
     if (target && target !== rdRoot()) {
       target.classList.add("rd-hover");
+      syncLiOwnContentHeight(target);
       state.hovered = target;
     }
   }
   function clearHover() {
-    if (state.hovered) { state.hovered.classList.remove("rd-hover"); state.hovered = null; }
+    if (state.hovered) {
+      state.hovered.classList.remove("rd-hover");
+      state.hovered = null;
+    }
   }
 
   // A code block has no separate DOM node for "the scrollbar" the way a table
@@ -40,6 +44,17 @@
     if (isHtml()) {
       var raw = node.nodeType === 3 ? node.parentElement : node;
       if (!raw || !root.contains(raw)) return null;
+      // An arbitrary target can put `overflow-x: auto` on anything, not just
+      // the two structural cases md knows about below (.rd-table-scroll,
+      // <pre>) — so every ancestor between the click and root is checked
+      // geometrically instead, same isOverElementScrollbar() reasoning as
+      // those. `e` is absent for the range-comment call site (no click point
+      // to test), which this simply skips, same as the <pre> check below.
+      if (e) {
+        for (var sb = raw; sb && sb !== root; sb = sb.parentElement) {
+          if (isOverElementScrollbar(sb, e.clientY)) return null;
+        }
+      }
       // Climb to the nearest block-ish element. Pinning an absolutely-positioned
       // marker on an inline box (<span>/<a>/<em>) is unreliable — inline boxes
       // wrap and `position:relative` on them is weakly defined — so walk up to

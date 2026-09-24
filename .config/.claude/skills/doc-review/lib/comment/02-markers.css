@@ -1,8 +1,9 @@
 
 /* ---------- hover / commented highlight ----------
    NOTE: .rd-hover / .rd-commented / .rd-marker / .rd-stale (+ the rdflash
-   keyframes below) are mirrored in comment.js FRAME_OVERLAY_CSS for the HTML
-   iframe path. Keep the two in sync when editing marker appearance. */
+   keyframes below) are mirrored in frame-overlay.css for the HTML iframe path
+   (linked in by comment.02-render.js's injectFrameOverlay()). Keep the two in
+   sync when editing marker appearance. */
 .rd-hover {
   outline: 2px solid var(--rd-hover) !important;
   outline-offset: 2px;
