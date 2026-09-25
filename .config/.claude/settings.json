@@ -280,7 +280,7 @@
       "mcp__claude_ai_Notion__notion-search",
       "Bash(bash \"${CLAUDE_SKILL_DIR}/scripts/impact-scan.sh\":*)",
       "Bash(python3 \"${CLAUDE_SKILL_DIR}/scripts/token-audit.py\":*)",
-      "Bash(python3 /Users/hikaru.umetsu/.claude/skills/doc-review/scripts/serve.py:*)",
+      "Bash(python3 \"${CLAUDE_SKILL_DIR}/scripts/serve.py\":*)",
       "Bash(bash \"${CLAUDE_SKILL_DIR}/scripts/scan-staged.sh\":*)",
       "Bash(bash \"${CLAUDE_SKILL_DIR}/scripts/publish.sh\":*)",
       "Bash(bash ~/.claude/skills/pre-code-review/scripts/gather-context.sh:*)",

@@ -74,7 +74,7 @@
 - **2件以上** … `reply-batch` に返信オブジェクトの配列を JSON ファイルで渡し、**1回のリクエストにまとめる**:
 
 ```bash
-python3 <SKILL_DIR>/scripts/serve.py reply-batch \
+python3 "${CLAUDE_SKILL_DIR}/scripts/serve.py" reply-batch \
   --target <対象ファイルの絶対パス> \
   --file <WORK_DIR>/replies-<batch_id>.json
 ```
@@ -96,7 +96,7 @@ python3 <SKILL_DIR>/scripts/serve.py reply-batch \
 - **1件のみ** … ファイル作成の往復が無駄なので、従来どおり `reply` を CLI オプションで使う:
 
 ```bash
-python3 <SKILL_DIR>/scripts/serve.py reply \
+python3 "${CLAUDE_SKILL_DIR}/scripts/serve.py" reply \
   --target <対象ファイルの絶対パス> \
   --thread-id <item の thread_id> \
   --text "<このコメントへの編集方針・実施内容・理由（特定できなければその旨）>"
