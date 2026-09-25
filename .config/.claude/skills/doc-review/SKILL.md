@@ -48,7 +48,7 @@ Claude(メインセッション)
 ## 進行手順
 
 ### STEP 0: 引数の解釈
-- `/doc-review @path` のファイルパスを**絶対パス**に解決（`<SKILL_DIR>` はこの SKILL.md があるディレクトリ）。
+- `/doc-review @path` のファイルパスを**絶対パス**に解決する。スキル自身のディレクトリは環境変数 `${CLAUDE_SKILL_DIR}` で参照する（Claude が実パスに解決して書き換えない。以降のコマンド例もこの変数をそのまま埋め込む）。
 - 拡張子が `md` / `markdown` / `html` / `htm` でなければ中断。
 - **作業ディレクトリは指定しない**（既定で `~/.claude/doc-review/<対象パスのハッシュ>` を使う。リポジトリ内を汚さず、同じファイルを再度開くと過去スレッドを復元する）。
 
@@ -56,9 +56,9 @@ Claude(メインセッション)
 Bash を `run_in_background: true` で実行する（`--work-dir` は付けない）:
 
 ```bash
-python3 <SKILL_DIR>/scripts/serve.py \
+python3 "${CLAUDE_SKILL_DIR}/scripts/serve.py" \
   --target <対象ファイルの絶対パス> \
-  --skill-dir <SKILL_DIR> \
+  --skill-dir "${CLAUDE_SKILL_DIR}" \
   --port 5050 \
   --idle-timeout 1800
 ```
@@ -111,7 +111,7 @@ mkdir -p <WORK_DIR> && touch <WORK_DIR>/inbox.jsonl
 - **2件以上** … `<WORK_DIR>/replies-<batch_id>.json` を Write で作成し（`batch_id` はそのバッチの値。バッチごとに別名になるので既存ファイルを上書きしない）、`reply-batch` を**1回**実行する:
 
 ```bash
-python3 <SKILL_DIR>/scripts/serve.py reply-batch \
+python3 "${CLAUDE_SKILL_DIR}/scripts/serve.py" reply-batch \
   --target <対象ファイルの絶対パス> --file <WORK_DIR>/replies-<batch_id>.json
 ```
 
@@ -130,7 +130,7 @@ python3 <SKILL_DIR>/scripts/serve.py reply-batch \
 - **1件のみ** … ファイル作成の往復が無駄になるので、従来どおり `reply` を使う:
 
 ```bash
-python3 <SKILL_DIR>/scripts/serve.py reply \
+python3 "${CLAUDE_SKILL_DIR}/scripts/serve.py" reply \
   --target <対象ファイルの絶対パス> --thread-id <thread_id> \
   --text "<編集方針>"
 ```
@@ -147,7 +147,7 @@ python3 <SKILL_DIR>/scripts/serve.py reply \
 ユーザーが「終了」等と言ったら、Monitor を **TaskStop** で止め、`stop` でブラウザのタブを閉じてからサーバーを停止する:
 
 ```bash
-python3 <SKILL_DIR>/scripts/serve.py stop --target <対象ファイルの絶対パス>
+python3 "${CLAUDE_SKILL_DIR}/scripts/serve.py" stop --target <対象ファイルの絶対パス>
 ```
 
 `stop` の出力（閉じたタブ数 / notice / error）をユーザーに1行で伝える。`error` の場合はタブが残っている旨と原因を伝える（macOS の自動化許可が未承認だと `error` になる。下記「注意」参照）。
