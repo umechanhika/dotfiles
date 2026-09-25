@@ -352,5 +352,6 @@
   "theme": "dark",
   "agentPushNotifEnabled": true,
   "model": "opusplan",
-  "outputStyle": "Asuka"
+  "outputStyle": "Asuka",
+  "remoteControlAtStartup": true
 }
