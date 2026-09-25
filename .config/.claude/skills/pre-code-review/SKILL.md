@@ -18,7 +18,7 @@ description: Android (Kotlin/Jetpack Compose) のコードレビューを行う�
 |------|---------|
 | レビュー観点（言語・フレームワーク非依存） | `references/review-general.md` |
 | レビュー観点（Android/Kotlin/Compose 固有） | `references/review-android.md` |
-| サブエージェント詳細仕様（STEP 5a の委任 a-1・STEP 5b の担当割当 b-1・統合 b-2） | `references/review-subagent-spec.md` |
+| サブエージェント詳細仕様（STEP 5a の委任 a-1・STEP 5b の委任 b-1・整形 b-2） | `references/review-subagent-spec.md` |
 | 文体・言い回しルール（指摘記述ルール b-3・スタイル原則・優先度判断・STEP 5.5 セルフチェック） | `references/review-style.md` |
 | 出力mdテンプレート全文（STEP 6 の出力形式） | `references/review-output-format.md` |
 | PRコメント投稿手順・API 詳細・投稿前確認ゲート | `references/review-pr-comment.md` |
@@ -95,7 +95,7 @@ diff・threads のパスを渡した**サブエージェントを1つ起動**し
 
 **b. 差分コードへの新規指摘生成**（他者のPR / PRなしの場合のみ）
 
-観点を3つに分担した**サブエージェントを3つ並行起動**して洗い出し、その結果を親（あなた）が統合する。サブエージェントの担当割当・起動時に渡すプロンプト要件・親による統合手順（b-1/b-2）の詳細は `references/review-subagent-spec.md` を参照。
+diff のパスを渡した**サブエージェントを1つ起動**して全観点で洗い出し、その結果を親（あなた）が整形する。起動時に渡すプロンプト要件・親による整形手順（b-1/b-2）の詳細は `references/review-subagent-spec.md` を参照。
 
 各指摘の記述ルール（トーン判定、既存コードを引用しない、suggestion は変更行のみ、トーン別の言い回し表、提案→理由の順など）（b-3）の詳細は `references/review-style.md` を参照。サブエージェント・親ともこのルールに従って指摘を整形する。
 
@@ -141,12 +141,10 @@ mdファイルを書く前に、生成した各指摘を文体・言い回しの
 
 ## レビュー観点チェックリスト
 
-レビュー観点は肥大化を避けるため参照ファイルに集約してある。各サブエージェント（b-1）は担当に応じて以下を読むこと。
+レビュー観点は肥大化を避けるため参照ファイルに集約してある。b-1 のサブエージェントは以下の両方を読む。
 
 - **`references/review-general.md`** — 言語・フレームワーク非依存の普遍的観点（命名、可読性、設計原則、コメント、品質、エラーハンドリング、テスト、パフォーマンス、後方互換性、国際化、競合状態、リソース管理、依存ライブラリ、ロギング、エラーメッセージ）
 - **`references/review-android.md`** — Android/Kotlin/Compose 固有の観点（Kotlin イディオム、コルーチン・Flow、Jetpack Compose、MVVM/UseCase、リソース/Room、ライフサイクル、メモリリーク、R8、パーミッション、ナビゲーション、アクセシビリティ、テーマ/画面サイズ、Compose 安定性、動作確認エビデンス）
-
-各ファイルの先頭に目次があり、b-1 の担当割当（例: Agent A は general の 3・8・9・11）はこの目次番号に対応する。
 
 ---
 

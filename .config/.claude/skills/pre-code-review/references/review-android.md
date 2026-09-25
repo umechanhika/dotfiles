@@ -3,7 +3,7 @@
 このファイルは Android・Kotlin・Jetpack Compose に固有のレビュー観点をまとめたもの。
 言語非依存の普遍的観点は `review-general.md` を参照すること。
 
-各観点は「何を見るか」を簡潔に示す。指摘を書く際の言い回し・トーンは SKILL.md の言い回しルールに従う。
+各観点は「何を見るか」を簡潔に示す。指摘を書く際の言い回し・トーンは `references/review-style.md` の言い回しルールに従う。
 
 ## 目次
 1. Kotlin イディオム

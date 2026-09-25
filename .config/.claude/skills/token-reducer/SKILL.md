@@ -21,7 +21,7 @@ scout → deep-read（段階2への遅延詳細化）で進める。
    python3 "${CLAUDE_SKILL_DIR}/scripts/token-audit.py"
    ```
    全セッションを集計した JSON を返す。主な項目：
-   - `summary`：総セッション数。`total_output_tokens` は **メイン会話＋サブエージェント**の合算で、`main_output_tokens` と `subagent`（消費トークン・全体比 `share_pct`・モデル別 `by_model`）に内訳される（委任は別モデル＝多くは haiku で動くため、委任提案はこのコストと天秤にかける）。`by_project` は **正規 git リポジトリ root 単位**で集約（worktree もサブディレクトリも本体リポへ畳む。元 cwd は `folded_paths`）。
+   - `summary`：総セッション数。`total_output_tokens` は **メイン会話＋サブエージェント**の合算で、`main_output_tokens` と `subagent`（消費トークン・全体比 `share_pct`・モデル別 `by_model`）に内訳される（サブエージェントのモデルは `by_model` の実測で確認し、委任提案はこのコストと天秤にかける）。`by_project` は **正規 git リポジトリ root 単位**で集約（worktree もサブディレクトリも本体リポへ畳む。元 cwd は `folded_paths`）。
    - `signals`：14観点に対応した検出値。各シグナルは候補セッションIDと `applies`（該当有無）を持つ。
    - `existing_mechanisms`：既存 hook / 有効プラグイン / skill 一覧 / CLAUDE.md 行数（**重複・適用済みの再提案を防ぐ**）。`skills` は各スキルの `skill_md_lines`・`has_scripts`・`script_files`・`mechanical_markers`・`scriptable_candidate`（機械的手順の記述があるのに scripts/ が無い＝観点13候補）を含む。
    - `apply_log`：過去の適用変更と適用日（縦断検証の基準・端末ローカル保存）。書式・保存先は適用時に `reference.md` 参照。
