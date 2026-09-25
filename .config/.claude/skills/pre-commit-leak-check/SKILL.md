@@ -1,7 +1,7 @@
 ---
 name: pre-commit-leak-check
-description: コミット前に差分を「企業の機密情報・個人を特定できる情報・業界/業種を特定できる内容・端末や環境固有の情報」の4観点でレビューし、コミット対象ファイルとチェック結果を表で提示してユーザー承認を得てから commit・push し、承認内容に応じて PR 作成まで行うスキル。ステージ済みが空の場合（Claudeが編集後にgit addしていない状態）は、git addする前にファイル内容を直接読んでリークチェックを実施し、承認後にまとめてステージする（承認は1回）。upstream 未設定のブランチは -u でローカルブランチを upstream に指定して push する。push まで / PR 作成まで のどちらまで実行するかは承認時にユーザーが選ぶ。「コミットして」「commit して」「コミットお願い」「ステージしてコミット」「これでコミット」「push して」「コミットしてプッシュ」「プルリク作って」「PR まで作って」「push して PR 出して」など、ユーザーが Claude に commit / push / PR 作成操作を任せる発話があったら必ず使うこと。dotfiles など公開リポジトリに限らず、業務用リポジトリでも誤って機密情報や端末固有パス、あるいはコミットすべきでないファイルが混入するのを防ぐため、commit / push / PR 系の依頼では原則すべて発動する。明示的に「チェック不要」「そのままコミットして」と言われた場合のみスキップしてよい。
-model: claude-sonnet-4-6
+description: コミット前に差分を「企業の機密情報・個人を特定できる情報・業界/業種を特定できる内容・端末や環境固有の情報」の4観点でレビューし、コミット対象ファイルとチェック結果を表で提示してユーザー承認を得てから commit・push し、承認内容に応じて PR 作成まで行うスキル。ユーザーが Claude に commit / push / PR 作成のいずれかを任せる依頼があったら、言い回しを問わず必ず使うこと。公開リポジトリに限らず業務用リポジトリでも、機密情報や端末固有パス、コミットすべきでないファイルの混入を防ぐため原則すべて発動する。明示的に「チェック不要」「そのままコミットして」と言われた場合のみスキップしてよい。
+model: sonnet
 ---
 
 # pre-commit-leak-check
@@ -255,7 +255,7 @@ git worktree list --porcelain && echo "---" && git branch --show-current
 
 `--mode commit-push`（push まで）または `--mode commit-pr`（PR まで）で 1 呼び出しに集約する。
 
-**コミットメッセージ**: `$'...\n...'` 形式で複数行を表現する（ `\n` はエスケープ。literal 改行にしない）。`Co-Authored-By` トレーラーを末尾に含める。`--amend` は使わず新規 commit。`--no-verify` でフックをスキップしない（フック失敗時は原因修正後に再実行）。
+**コミットメッセージ**: `$'...\n...'` 形式で複数行を表現する（ `\n` はエスケープ。literal 改行にしない）。会話で指定された帰属トレーラー（`Co-Authored-By` 等）を末尾に含める。`--amend` は使わず新規 commit。`--no-verify` でフックをスキップしない（フック失敗時は原因修正後に再実行）。
 
 **対象ファイル**: 承認テーブルに列挙したファイルを `--file` で個別に指定する。`git add -A` / `git add .` は使わない。除外として記録したファイルは指定しない。
 
@@ -266,7 +266,7 @@ bash "${CLAUDE_SKILL_DIR}/scripts/publish.sh" \
   --mode commit-push \
   --file "<承認ファイル1>" \
   --file "<承認ファイル2>" \
-  --message $'<subject line>\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>'
+  --message $'<subject line>\n\n<会話で指定された帰属トレーラー>'
 ```
 
 **PR 作成まで（選択肢 1）**: PR 本文はヒアドキュメントで stdin に渡す（mktemp/cat/rm 不要）。
@@ -278,7 +278,7 @@ bash "${CLAUDE_SKILL_DIR}/scripts/publish.sh" \
   --mode commit-pr \
   --file "<承認ファイル1>" \
   --file "<承認ファイル2>" \
-  --message $'<subject line>\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>' \
+  --message $'<subject line>\n\n<会話で指定された帰属トレーラー>' \
   --title "<PR タイトル（70字以内）>" <<'PRBODY'
 ## 概要
 <変更概要（ファイル別の要点・背景）>

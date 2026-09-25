@@ -12,30 +12,21 @@ diff・threads の全文はサブエージェントだけが読む。親（あ�
 
 親は返却結果を STEP 6 の出力mdテンプレートにそのまま流し込む。diff/threads 全文を親自身が保持する必要はない。
 
-## b-1. 3つのサブエージェントを並行起動する（STEP 5b・他者PR/PRなしのみ）
+## b-1. サブエージェントを1つ起動する（STEP 5b・他者PR/PRなしのみ）
 
-単一パスでは観点の取りこぼしが起きやすいため、観点を3つに分担した**サブエージェントを3つ並行起動**して洗い出し、その結果を親（あなた）が統合する。
+`Agent`（`subagent_type` は `general-purpose`）を1つ起動し、`references/review-general.md` と `references/review-android.md` の全観点で差分から指摘を洗い出させる。親（あなた）はその結果を整形する。
 
-`Agent`（`subagent_type` は `general-purpose`）を**1メッセージで3つ同時に**起動する。各サブエージェントには、担当観点・重点的に読む参照ファイル・差分・STEP 3.5 のパターン検索結果・指摘記述ルール（b-3）を渡す。
-
-| エージェント | 担当観点 | 重点的に読む参照ファイル |
-|------------|---------|----------------------|
-| Agent A: 設計・構造系 | 設計/アーキテクチャ、コルーチン・Flow、パフォーマンス、責務分離、共通化(YAGNI)、デッドコード | `references/review-general.md`（3・8・9・11）／`references/review-android.md`（2・4） |
-| Agent B: UI・可読性系 | Jetpack Compose、命名、可読性、Kotlin イディオム、アクセシビリティ、テーマ、プレビュー | `references/review-general.md`（1・2・10・15）／`references/review-android.md`（1・3・11・12・13） |
-| Agent C: 品質・安全系 | コード品質、null安全、コメント/ドキュメント、セキュリティ、テスト、ライフサイクル/リーク、R8、Room | `references/review-general.md`（4・5・6・7・12・13・14）／`references/review-android.md`（5・6・7・8・9・10・14） |
-
-各サブエージェントへのプロンプトに必ず含める:
+プロンプトに必ず含める:
 - レビュー対象の差分: STEP 1〜4 のスクリプト出力マニフェストに示された `diff=` のパスを渡す（サブエージェントは `Read` ツールでそのパスを参照する。ネットワーク再取得は行わない）
-- 担当観点と、重点的に読む参照ファイルのパス（このスキルの `references/` 配下。例: `~/.claude/skills/pre-code-review/references/review-general.md`）
+- 読む参照ファイルのパス（このスキルの `references/` 配下の `review-general.md` と `review-android.md`。例: `~/.claude/skills/pre-code-review/references/review-general.md`）
 - スクリプト出力マニフェストの `=== PATTERN_HITS ===` セクションをそのまま渡す（STEP 3.5 相当）
 - 「各指摘に ファイル・行を付ける。行は `grep -n` で実ファイル行を確認する」指示
 - b-3 の指摘記述ルール（既存コードを引用しない／suggestion は変更行のみ／言い回しルール／**重要度ラベルは書かない**）
-- 「担当観点で該当がなければ『指摘なし』と返す」指示
+- 「該当がなければ『指摘なし』と返す」指示
 
-## b-2. 親が統合する
+## b-2. 親が整形する
 
-3エージェントの結果を受け取ったら:
-- **同一箇所・同一趣旨の重複指摘を1件に集約する**（最も的確な記述を採用）
+サブエージェントの結果を受け取ったら:
 - 各指摘のファイル・行を必要なら `grep -n` で再確認する
 - 各指摘を b-3 の言い回しルールで最終整形する
 - 修正を強く促すもの（バグ・クラッシュ・仕様漏れ）を先に、確認・任意の指摘を後に並べる

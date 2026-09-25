@@ -85,7 +85,7 @@ mkdir -p <WORK_DIR> && touch <WORK_DIR>/inbox.jsonl
 - `description`: `doc-review inbox: <対象ファイル名>`
 - `persistent`: `true`
 
-**禁止**: 素の Bash（`run_in_background`）で `tail -f` を代用しない。バックグラウンドタスクの通知は「プロセス終了時」だけで、`tail -f` は終了しないため新規バッチの追記に気づけない（実際にこれで送信を見落とした事例がある。正しく Monitor ツールを使うこと）。
+**禁止**: 素の Bash（`run_in_background`）で `tail -f` を代用しない。バックグラウンドタスクの通知は「プロセス終了時」だけで、`tail -f` は終了しないため新規バッチの追記に気づけない。
 
 - 1イベント = 1バッチ。`items` に各コメント（`thread_id` / `anchor` / `text` / `is_new`）が入る。
 
@@ -127,7 +127,7 @@ python3 "${CLAUDE_SKILL_DIR}/scripts/serve.py" reply-batch \
 ]
 ```
 
-- **1件のみ** … ファイル作成の往復が無駄になるので、従来どおり `reply` を使う:
+- **1件のみ** … ファイル作成の往復が無駄になるので、`reply` を使う:
 
 ```bash
 python3 "${CLAUDE_SKILL_DIR}/scripts/serve.py" reply \

@@ -42,7 +42,7 @@ val point = Point(
     y = origin.top,
 ```
 
-- レビュー観点は `references/review-general.md`（言語非依存）と `references/review-android.md`（Android/Kotlin/Compose 固有）に集約してある。b-1 の担当割当に従い各サブエージェントが参照する
+- レビュー観点は `references/review-general.md`（言語非依存）と `references/review-android.md`（Android/Kotlin/Compose 固有）に集約してある。b-1 のサブエージェントが両方を参照する
 - 各指摘には **ファイル** と **行** を必ず記載する（行が特定できない場合は `-`）
   - `gh pr diff` の出力はdiff上の行番号であり、実際のファイルの行番号と異なる。**実際のファイル行番号**を取得するには `grep -n "{特徴的なコード}" {ファイルパス}` で確認する
   - 行番号を誤って記載するとレビュアーが該当箇所を探せないため、確認できない場合は `-` にする

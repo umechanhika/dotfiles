@@ -348,7 +348,7 @@
       }
     }
   },
-  "effortLevel": "high",
+  "effortLevel": "medium",
   "theme": "dark",
   "agentPushNotifEnabled": true,
   "model": "opusplan",
