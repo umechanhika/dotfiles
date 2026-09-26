@@ -93,13 +93,25 @@ install.sh は以下のツールを自動でクローン・ビルドする:
 ## ☁️リモート環境のセットアップ
 Claude Code on the web のコンテナでも、グローバル設定・スキル・アウトプットスタイルを揃える。
 
-環境設定の setup script には次の 2 行だけを書く。残りはリポジトリ側のスクリプトが持つ。
+このリポジトリは private のため、setup script からの clone にはトークンが要る
+（setup script の実行時点ではセッションの git 認証が使えない）。
+
+1. Fine-grained personal access token を作る
+   - Repository access: `umechanhika/dotfiles` のみ
+   - Permissions: Contents を Read-only
+2. 環境設定の環境変数に `DOTFILES_TOKEN=<トークン>` を追加する
+3. 環境設定の setup script には次だけを書く。残りはリポジトリ側のスクリプトが持つ。
 
 ```sh
 #!/bin/bash
-[ -d ~/.dotfiles ] || git clone --depth=1 https://github.com/umechanhika/dotfiles ~/.dotfiles
+set -euo pipefail
+[ -d ~/.dotfiles ] || git clone --depth=1 "https://x-access-token:${DOTFILES_TOKEN}@github.com/umechanhika/dotfiles" ~/.dotfiles
 bash ~/.dotfiles/.bin/claude-remote-setup.sh --update
 ```
+
+トークン入りの URL がそのまま `origin` になるため、`--update` や
+セッション開始時の hook による fetch も同じ認証で動く。
+トークンの期限が切れると clone で失敗するので、その時は作り直して環境変数を差し替える。
 
 claude-remote-setup.sh がやること:
 - dotfiles のクローン取得（`--update` を付けると既存のクローンを最新化する）
