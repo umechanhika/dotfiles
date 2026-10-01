@@ -21,6 +21,11 @@ export PATH="$PATH:$HOME/dotfiles/.bin"
 export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 export PATH="$PATH:$JAVA_HOME/bin"
 
+# Android Studio の Gradle JDK を 17 に固定（同梱の JBR 25 では Gradle 8.13 が動かないため）
+# TODO: このパスは環境固有（Microsoft Build of OpenJDK 17）。
+#       この zshrc は複数の環境で共有しているため、環境ごとの設定に切り出す。
+export STUDIO_GRADLE_JDK="/Library/Java/JavaVirtualMachines/microsoft-17.jdk/Contents/Home"
+
 # Detach Android Studio from the terminal so closing the terminal doesn't kill it
 function studio() {
   nohup /Applications/Android\ Studio.app/Contents/MacOS/studio "$@" > /dev/null 2>&1 &
