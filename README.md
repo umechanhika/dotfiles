@@ -88,7 +88,6 @@
 
 install.sh は以下のツールを自動でクローン・ビルドする:
 - [agent-manager](https://github.com/umechanhika/agent-manager) → `~/agent-manager`
-- [window-snap](https://github.com/umechanhika/window-snap) → `~/window-snap`
 
 ## ☁️リモート環境のセットアップ
 Claude Code on the web のコンテナでも、グローバル設定・スキル・アウトプットスタイルを揃える。
