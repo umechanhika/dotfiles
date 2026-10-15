@@ -1,0 +1,29 @@
+// Claude Code のリモート環境（Claude Code on the web のコンテナ）向けの Gradle 初期化スクリプト。
+// claude-remote-setup.sh が ~/.gradle/init.d/ にリンクする。
+//
+// 共有の出口 IP から Gradle が Maven Central を直接叩くと HTTP 429（Too Many Requests）で
+// 断続的に弾かれ、Gradle は 429 を再試行しないので、依存の解決が 1 発で全滅する。
+// Google が運用する Maven Central の完全ミラーへ URL を差し替えて回避する。
+// プロジェクト側のビルド設定は変更しない。
+def mirror = 'https://maven-central.storage-download.googleapis.com/maven2/'
+def rewrite = { repos ->
+    repos.all { repo ->
+        if (repo instanceof MavenArtifactRepository
+            && repo.url.toString().startsWith('https://repo.maven.apache.org/maven2')) {
+            repo.url = mirror
+        }
+    }
+}
+settingsEvaluated { settings ->
+    rewrite(settings.pluginManagement.repositories)
+    rewrite(settings.dependencyResolutionManagement.repositories)
+}
+
+// Robolectric はテスト実行時に Android の SDK jar を自前で Maven Central から取得するので、
+// そちらも同じミラーへ向ける。
+allprojects {
+    tasks.withType(Test).configureEach {
+        systemProperty 'robolectric.dependency.repo.id', 'central-mirror'
+        systemProperty 'robolectric.dependency.repo.url', mirror
+    }
+}

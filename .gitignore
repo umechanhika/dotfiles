@@ -1,3 +1,9 @@
 .DS_Store
 .claude/settings.local.json
 .config/.claude/settings.local.json
+
+# Claude Code がリモート環境で ~/.claude/skills（このリポジトリへのリンク）に書き込むもの。
+# synced/ は Anthropic 提供スキルの同期先、session-start-hook/ はクラウドセッションが配る雛形。
+# どちらも配布物ではないので追跡しない。
+.config/.claude/skills/synced/
+.config/.claude/skills/session-start-hook/
