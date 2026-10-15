@@ -27,6 +27,11 @@ on:
 permissions:
   contents: write
 
+# コンテナジョブの既定シェルは sh なので、pipefail や PIPESTATUS が使える bash に固定する
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build:
     name: Build
