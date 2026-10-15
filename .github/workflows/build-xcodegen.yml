@@ -1,0 +1,125 @@
+# XcodeGen を Linux 向けにビルドして、このリポジトリの Release に置く。
+#
+# 目的: Claude Code のリモート環境（Ubuntu 24.04 の VM）で XcodeGen を使うため。
+# Linux 向けの配布物が無く、セットアップスクリプトでソースからビルドすると約 3 分かかり、
+# 環境キャッシュの上限（およそ 5 分）を超えてしまう。ここで一度だけビルドしておき、
+# セットアップ側（.bin/install-xcodegen.sh）はダウンロードするだけにする。
+#
+# Swift の標準ライブラリを静的リンクするので、実行時に Swift ツールチェーンは不要。
+#
+# 使い方: Actions タブから手動実行し、版を指定する。
+# 完了後、ジョブのサマリーに出る sha256 を .bin/install-xcodegen.sh に書き写す。
+# 同じ版を作り直すときは、先に既存の Release とタグを削除する（上書きはしない）。
+name: Build XcodeGen for Linux
+
+on:
+  workflow_dispatch:
+    inputs:
+      xcodegen_version:
+        description: "XcodeGen の版（git タグ名と同じ）"
+        required: true
+        default: "2.44.1"
+      swift_version:
+        description: "ビルドに使う Swift の版（Docker イメージ swift:<版>-noble）"
+        required: true
+        default: "6.0.3"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-24.04
+    # リモート環境と同じ Ubuntu 24.04（noble）系のイメージでビルドする
+    container:
+      image: swift:${{ inputs.swift_version }}-noble
+    env:
+      XCODEGEN_VERSION: ${{ inputs.xcodegen_version }}
+    steps:
+      - name: Clone XcodeGen
+        run: |
+          git -c advice.detachedHead=false clone --quiet --depth=1 \
+            --branch "$XCODEGEN_VERSION" https://github.com/yonaskolb/XcodeGen.git src
+
+      - name: Build (static Swift stdlib)
+        # --product で実行ファイルだけに絞る。パッケージ全体を対象にすると、テスト補助用の
+        # ターゲット（TestSupport）が XCTest を要求し、静的リンク用の XCTest は無いので失敗する
+        run: |
+          swift build -c release --static-swift-stdlib --product xcodegen --package-path src 2>&1 | tail -3
+          test "${PIPESTATUS[0]}" -eq 0
+
+      - name: Package
+        run: |
+          set -euo pipefail
+          # 実行ファイルは隣の XcodeGen_XcodeGenKit.resources（設定のプリセット）を読むので、
+          # 2 つを同じディレクトリにまとめる
+          mkdir -p "dist/xcodegen-$XCODEGEN_VERSION"
+          cp -r src/.build/release/xcodegen \
+                src/.build/release/XcodeGen_XcodeGenKit.resources \
+                "dist/xcodegen-$XCODEGEN_VERSION/"
+          # 動作確認。XcodeGen は USER が無いと落ちるので補う
+          USER=runner "dist/xcodegen-$XCODEGEN_VERSION/xcodegen" --version
+          # 動的リンク先を記録しておく（Swift の標準ライブラリが含まれていないことの確認用）
+          ldd "dist/xcodegen-$XCODEGEN_VERSION/xcodegen"
+          asset="xcodegen-$XCODEGEN_VERSION-linux-x86_64.tar.gz"
+          tar -C dist -czf "$asset" "xcodegen-$XCODEGEN_VERSION"
+          sha256sum "$asset" > "$asset.sha256"
+          cat "$asset.sha256"
+
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodegen
+          path: |
+            xcodegen-*.tar.gz
+            xcodegen-*.tar.gz.sha256
+          if-no-files-found: error
+
+  release:
+    name: Release
+    needs: build
+    runs-on: ubuntu-24.04
+    env:
+      XCODEGEN_VERSION: ${{ inputs.xcodegen_version }}
+      SWIFT_VERSION: ${{ inputs.swift_version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Download build output
+        uses: actions/download-artifact@v4
+        with:
+          name: xcodegen
+
+      - name: Create release
+        run: |
+          set -euo pipefail
+          tag="xcodegen-v$XCODEGEN_VERSION"
+          asset="xcodegen-$XCODEGEN_VERSION-linux-x86_64.tar.gz"
+          # 既存の Release には上書きしない。作り直すときは先に削除する
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Release $tag は既に存在する。作り直すなら先に Release とタグを削除すること" >&2
+            exit 1
+          fi
+          cat > notes.md <<EOF
+          XcodeGen $XCODEGEN_VERSION を Ubuntu 24.04 / Swift $SWIFT_VERSION でビルドしたもの。
+          Swift の標準ライブラリは静的リンク済みで、実行時に Swift ツールチェーンは不要。
+
+          Claude Code のリモート環境のセットアップ（\`.bin/install-xcodegen.sh\`）から取得する。
+          EOF
+          gh release create "$tag" "$asset" "$asset.sha256" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "XcodeGen $XCODEGEN_VERSION (Linux x86_64)" \
+            --notes-file notes.md
+
+      - name: Summary
+        run: |
+          asset="xcodegen-$XCODEGEN_VERSION-linux-x86_64.tar.gz"
+          sha=$(cut -d' ' -f1 "$asset.sha256")
+          {
+            echo "## .bin/install-xcodegen.sh に書き写す値"
+            echo
+            echo '```sh'
+            echo "XCODEGEN_VERSION=$XCODEGEN_VERSION"
+            echo "XCODEGEN_SHA256=$sha"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

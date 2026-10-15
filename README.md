@@ -116,6 +116,25 @@ claude-remote-setup.sh がやること:
 - スキルはコピーではなくリンクにして、クローンの更新に追従させる。
 - クローン元・クローン先は `DOTFILES_REPO`・`DOTFILES_DIR` で差し替えられる。
 
+### setup script を 5 分以内に収める
+環境キャッシュは、setup script がおよそ 5 分以内に終わった場合だけ作られる。
+作られれば以降のセッションは setup script 自体をスキップするので、
+どのリポジトリでも起動時の待ちが無くなる。超えると毎セッションで全工程が走る。
+
+- 互いに依存しない工程（Android SDK の導入、apt + Swift の導入など）は `&` と `wait` で並列に流す。
+- ソースからのビルドは持ち込まない。ビルドが要るものは GitHub Actions でビルドして Release に置き、setup script は取得するだけにする。
+
+### XcodeGen（Linux 向けビルド済み配布物）
+XcodeGen には Linux 向けの公式配布物が無い。setup script でソースからビルドすると約 3 分かかり、
+上の 5 分を超える原因になるため、このリポジトリの Release にビルド済みを置いている。
+
+- ビルド: Actions の `Build XcodeGen for Linux` を手動実行する（XcodeGen の版と Swift の版を指定）。
+  Swift の標準ライブラリを静的リンクするので、実行時に Swift ツールチェーンは不要。
+- 取得: setup script から `bash ~/.dotfiles/.bin/install-xcodegen.sh` を呼ぶ。
+  Release の取得物を sha256 で照合してから `/opt/xcodegen-<版>` に置き、`/usr/local/bin/xcodegen` を用意する。
+- 版を上げる手順: ワークフローを実行 → ジョブのサマリーに出る版と sha256 を `install-xcodegen.sh` に転記 → コミット。
+  同じ版を作り直すときは、先に既存の Release とタグを削除する（ワークフローは上書きしない）。
+
 ## 🪛ツール類のセットアップ
 ### BetterTouchTool
 - ライセンスファイルのインポート
