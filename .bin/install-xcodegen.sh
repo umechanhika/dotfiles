@@ -15,7 +15,7 @@ set -euo pipefail
 
 XCODEGEN_VERSION=2.44.1
 # Release のビルド結果から転記する。未記入なら取得を拒否して止める
-XCODEGEN_SHA256=
+XCODEGEN_SHA256=a22e2a680e0fa946a617685491c8262974c1c6a6720ff92d6dc366590aca1ed1
 
 RELEASE_REPO="${DOTFILES_REPO:-https://github.com/umechanhika/dotfiles}"
 XCODEGEN_DIR="/opt/xcodegen-$XCODEGEN_VERSION"
