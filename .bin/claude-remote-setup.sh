@@ -36,6 +36,7 @@ main() {
   local dotfiles_dir="${DOTFILES_DIR:-$HOME/.dotfiles}"
   local claude_dir="$HOME/.claude"
   local src_dir="$dotfiles_dir/.config/.claude"
+  local gradle_init="$dotfiles_dir/.config/gradle/init.d/maven-central-mirror.gradle"
 
   if [ -d "$dotfiles_dir/.git" ]; then
     if [ "$update" -eq 1 ]; then
@@ -51,7 +52,7 @@ main() {
   fi
 
   local required
-  for required in "$src_dir/CLAUDE.md" "$src_dir/skills" "$src_dir/output-styles" "$src_dir/settings.json"; do
+  for required in "$src_dir/CLAUDE.md" "$src_dir/skills" "$src_dir/output-styles" "$src_dir/settings.json" "$gradle_init"; do
     if [ ! -e "$required" ]; then
       echo "claude-remote-setup: 見つかりません: $required" >&2
       exit 1
@@ -63,6 +64,11 @@ main() {
   link_config "$src_dir/CLAUDE.md" "$claude_dir/CLAUDE.md"
   link_config "$src_dir/skills" "$claude_dir/skills"
   link_config "$src_dir/output-styles" "$claude_dir/output-styles"
+
+  # Gradle: リモート環境の共有の出口 IP から Maven Central を直接叩くと 429 で弾かれるため、
+  # 初期化スクリプトで Google のミラーへ差し替える。経緯と内容はリンク先のファイルに書いてある。
+  mkdir -p "$HOME/.gradle/init.d"
+  link_config "$gradle_init" "$HOME/.gradle/init.d/$(basename "$gradle_init")"
 
   # settings.json は macOS 専用の hook・statusLine を含むため丸ごとは持ち込まない。
   # リモートでも意味を持つ outputStyle だけを既存の設定にマージし、
