@@ -1,116 +1,4 @@
 {
-  "hooks": {
-  "Notification" : [
-  {
-    "hooks" : [
-    {
-      "command" : "$HOME\/.claude\/agent-manager\/hooks\/agent-manager-hook.sh",
-      "type" : "command"
-    }
-    ]
-  }
-  ],
-  "PostToolUse" : [
-  {
-    "hooks" : [
-    {
-      "command" : "$HOME\/.claude\/agent-manager\/hooks\/agent-manager-hook.sh",
-      "type" : "command"
-    }
-    ]
-  }
-  ],
-  "PreCompact" : [
-  {
-    "hooks" : [
-    {
-      "command" : "$HOME\/.claude\/agent-manager\/hooks\/agent-manager-hook.sh",
-      "type" : "command"
-    }
-    ]
-  }
-  ],
-  "PreToolUse" : [
-  {
-    "hooks" : [
-    {
-      "command" : "$HOME\/.claude\/agent-manager\/hooks\/agent-manager-hook.sh",
-      "type" : "command"
-    }
-    ]
-  }
-  ],
-  "SessionEnd" : [
-  {
-    "hooks" : [
-    {
-      "command" : "$HOME\/.claude\/agent-manager\/hooks\/agent-manager-hook.sh",
-      "type" : "command"
-    }
-    ]
-  }
-  ],
-  "SessionStart" : [
-  {
-    "hooks" : [
-    {
-      "command" : "$HOME\/.claude\/agent-manager\/hooks\/agent-manager-hook.sh",
-      "type" : "command"
-    }
-    ]
-  }
-  ],
-  "Stop" : [
-  {
-    "hooks" : [
-    {
-      "command" : "$HOME\/.claude\/agent-manager\/hooks\/agent-manager-hook.sh",
-      "type" : "command"
-    }
-    ]
-  }
-  ],
-  "StopFailure" : [
-  {
-    "hooks" : [
-    {
-      "command" : "$HOME\/.claude\/agent-manager\/hooks\/agent-manager-hook.sh",
-      "type" : "command"
-    }
-    ]
-  }
-  ],
-  "SubagentStart" : [
-  {
-    "hooks" : [
-    {
-      "command" : "$HOME\/.claude\/agent-manager\/hooks\/agent-manager-hook.sh",
-      "type" : "command"
-    }
-    ]
-  }
-  ],
-  "SubagentStop" : [
-  {
-    "hooks" : [
-    {
-      "command" : "$HOME\/.claude\/agent-manager\/hooks\/agent-manager-hook.sh",
-      "type" : "command"
-    }
-    ]
-  }
-  ],
-  "UserPromptSubmit" : [
-  {
-    "hooks" : [
-    {
-      "command" : "$HOME\/.claude\/agent-manager\/hooks\/agent-manager-hook.sh",
-      "type" : "command"
-    }
-    ]
-  }
-  ]
-},
   "cleanupPeriodDays": 365,
   "permissions": {
     "allow": [
@@ -329,16 +217,130 @@
       "Edit(~/Library/Keychains/**)"
     ]
   },
+  "model": "opus",
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/agent-manager/hooks/agent-manager-hook.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/agent-manager/hooks/agent-manager-hook.sh"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/agent-manager/hooks/agent-manager-hook.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/agent-manager/hooks/agent-manager-hook.sh"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/agent-manager/hooks/agent-manager-hook.sh"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/agent-manager/hooks/agent-manager-hook.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/agent-manager/hooks/agent-manager-hook.sh"
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/agent-manager/hooks/agent-manager-hook.sh"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/agent-manager/hooks/agent-manager-hook.sh"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/agent-manager/hooks/agent-manager-hook.sh"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/agent-manager/hooks/agent-manager-hook.sh"
+          }
+        ]
+      }
+    ]
+  },
   "statusLine": {
-  "command" : "$HOME\/.claude\/agent-manager\/hooks\/agent-manager-hook.sh statusline",
-  "type" : "command"
-},
+    "type": "command",
+    "command": "$HOME/.claude/agent-manager/hooks/agent-manager-hook.sh statusline"
+  },
   "enabledPlugins": {
     "skill-creator@claude-plugins-official": true,
     "frontend-design@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": true,
     "kotlin-lsp@claude-plugins-official": true,
-    "eli5@claude-community": true
+    "eli5@claude-community": true,
+    "cc-plugin-you-should-know@builtin": true
   },
   "extraKnownMarketplaces": {
     "claude-community": {
@@ -348,10 +350,22 @@
       }
     }
   },
-  "effortLevel": "medium",
-  "theme": "dark",
-  "agentPushNotifEnabled": true,
-  "model": "opusplan",
   "outputStyle": "Asuka",
-  "remoteControlAtStartup": true
+  "language": "Japanese",
+  "sandbox": {
+    "filesystem": {
+      "allowWrite": [
+        "~/.gradle"
+      ]
+    }
+  },
+  "effortLevel": "medium",
+  "voice": {
+    "enabled": true,
+    "mode": "hold"
+  },
+  "theme": "dark",
+  "remoteControlAtStartup": true,
+  "agentPushNotifEnabled": true,
+  "voiceEnabled": true
 }

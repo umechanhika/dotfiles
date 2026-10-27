@@ -17,8 +17,8 @@ export VISUAL=vim
 # dotfiles
 export PATH="$PATH:$HOME/dotfiles/.bin"
 
-# Java (Android Studio bundled JBR)
-export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+# Java (Amazon Corretto 17)
+export JAVA_HOME="/Library/Java/JavaVirtualMachines/amazon-corretto-17.jdk/Contents/Home"
 export PATH="$PATH:$JAVA_HOME/bin"
 
 # Android Studio の Gradle JDK を 17 に固定（同梱の JBR 25 では Gradle 8.13 が動かないため）

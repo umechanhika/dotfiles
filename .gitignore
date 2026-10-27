@@ -7,3 +7,9 @@
 # どちらも配布物ではないので追跡しない。
 .config/.claude/skills/synced/
 .config/.claude/skills/session-start-hook/
+
+# Claude Code がスキル削除時に退避するゴミ箱。
+.config/.claude/skills/.trash/
+
+# Python の実行時キャッシュ。
+__pycache__/
