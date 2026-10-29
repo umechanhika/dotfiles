@@ -1,0 +1,7 @@
+{
+  "name": "dotfiles-mods",
+  "owner": { "name": "umechanhika" },
+  "plugins": [
+    { "name": "vim-cheatsheet", "source": "./vim-cheatsheet", "description": "Toggle a vim key cheat sheet pane with /vim-cheat" }
+  ]
+}
