@@ -43,8 +43,9 @@ const SECTIONS: { title: string; rows: [string, string][] }[] = [
     ],
   },
   {
-    title: '回数指定',
-    rows: [['2dw', '数字を前に付けると回数分くり返す（例: 2 単語消す）']],
+    // The rule lives in the title so every row fits on one line.
+    title: '回数指定（数字を前に付けると回数分くり返す）',
+    rows: [['2dw', '2 単語消す']],
   },
 ]
 
@@ -90,10 +91,17 @@ export const register: Register = on => {
               <Box flexDirection="column" marginBottom={1}>
                 <Text bold>{section.title}</Text>
                 {section.rows.map(([key, meaning]) => (
-                  <Text>
-                    <Text color="cyan">{key.padEnd(KEY_WIDTH)}</Text>
-                    <Text>{meaning}</Text>
-                  </Text>
+                  // Separate boxes instead of padEnd: padEnd counts a
+                  // full-width character as one cell, and a wrapped meaning
+                  // would otherwise return to the key column.
+                  <Box flexDirection="row">
+                    <Box width={KEY_WIDTH} flexShrink={0}>
+                      <Text color="cyan">{key}</Text>
+                    </Box>
+                    <Box width={COLUMN_WIDTH - KEY_WIDTH}>
+                      <Text>{meaning}</Text>
+                    </Box>
+                  </Box>
                 ))}
               </Box>
             ))}
