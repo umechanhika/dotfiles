@@ -340,13 +340,20 @@
     "swift-lsp@claude-plugins-official": true,
     "kotlin-lsp@claude-plugins-official": true,
     "eli5@claude-community": true,
-    "cc-plugin-you-should-know@builtin": true
+    "cc-plugin-you-should-know@builtin": true,
+    "vim-cheatsheet@dotfiles-mods": true
   },
   "extraKnownMarketplaces": {
     "claude-community": {
       "source": {
         "source": "github",
         "repo": "anthropics/claude-plugins-community"
+      }
+    },
+    "dotfiles-mods": {
+      "source": {
+        "source": "directory",
+        "path": "~/dotfiles/.config/.claude/mods"
       }
     }
   },
@@ -365,6 +372,7 @@
     "mode": "hold"
   },
   "theme": "dark",
+  "editorMode": "vim",
   "remoteControlAtStartup": true,
   "agentPushNotifEnabled": true,
   "voiceEnabled": true
