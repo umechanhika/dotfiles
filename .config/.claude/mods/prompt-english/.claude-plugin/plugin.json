@@ -1,0 +1,1 @@
+{ "name": "prompt-english", "version": "0.1.0", "description": "Show an English rendering of each submitted prompt above the input, with stressed syllables in bold caps, for speaking practice", "types": "./types/index.d.ts" }
