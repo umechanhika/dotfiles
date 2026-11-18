@@ -2,6 +2,7 @@
   "name": "dotfiles-mods",
   "owner": { "name": "umechanhika" },
   "plugins": [
-    { "name": "vim-cheatsheet", "source": "./vim-cheatsheet", "description": "Toggle a vim key cheat sheet pane with /vim-cheat" }
+    { "name": "vim-cheatsheet", "source": "./vim-cheatsheet", "description": "Toggle a vim key cheat sheet pane with /vim-cheat" },
+    { "name": "prompt-english", "source": "./prompt-english", "description": "Show an English rendering of each submitted prompt above the input for speaking practice" }
   ]
 }
